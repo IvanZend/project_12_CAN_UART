@@ -32,7 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "user_file_12.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
