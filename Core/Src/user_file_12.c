@@ -10,8 +10,8 @@
 
 extern UART_HandleTypeDef huart2;
 
-#define UART_TIMEOUT						10
-#define UART_LONG_VALUE_LENGHT_BYTES		8
+#define UART_TIMEOUT						0
+#define UART_LONG_VALUE_LENGHT_BYTES		4
 #define UART_COMMAND_BYTE					0
 #define UART_DATA_BYTE						1
 
@@ -19,11 +19,13 @@ extern UART_HandleTypeDef huart2;
 
 void UART_message_decode(UART_HandleTypeDef *huart_pointer)
 {
+	init_array_by_zero(sizeof(UART_rx_buffer), &UART_rx_buffer[0]);
 	HAL_UART_Receive(huart_pointer, &UART_rx_buffer[0], (uint16_t)UART_MESSAGE_SIZE, (uint32_t)UART_TIMEOUT);
 	switch (UART_rx_buffer[UART_COMMAND_BYTE])
 	{
 	case VOID_COMMAND:
 	{
+		uint8_t test_value = UART_rx_buffer[UART_DATA_BYTE];
 
 		break;
 	}

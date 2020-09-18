@@ -46,8 +46,8 @@ project_12_FLASH_UART.bin \
 all: project_12_FLASH_UART.elf secondary-outputs
 
 # Tool invocations
-project_12_FLASH_UART.elf: $(OBJS) $(USER_OBJS) D:\GitHub\project_12_FLASH_UART\STM32G431KBTX_FLASH.ld
-	arm-none-eabi-gcc -o "project_12_FLASH_UART.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\GitHub\project_12_FLASH_UART\STM32G431KBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="project_12_FLASH_UART.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+project_12_FLASH_UART.elf: $(OBJS) $(USER_OBJS) C:\Users\IvanB.HEL-KONSTR7\Documents\GitHub\project_12_FLASH_UART\STM32G431KBTX_FLASH.ld
+	arm-none-eabi-gcc -o "project_12_FLASH_UART.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\IvanB.HEL-KONSTR7\Documents\GitHub\project_12_FLASH_UART\STM32G431KBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="project_12_FLASH_UART.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
