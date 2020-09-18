@@ -19,8 +19,15 @@ extern UART_HandleTypeDef huart2;
 
 void UART_message_decode(UART_HandleTypeDef *huart_pointer)
 {
-	init_array_by_zero(sizeof(UART_rx_buffer), &UART_rx_buffer[0]);
+	//init_array_by_zero(sizeof(UART_rx_buffer), &UART_rx_buffer[0]);
+
 	HAL_UART_Receive(huart_pointer, &UART_rx_buffer[0], (uint16_t)UART_MESSAGE_SIZE, (uint32_t)UART_TIMEOUT);
+	uint8_t test_value = UART_rx_buffer[0];
+	if (test_value)
+	{
+
+	}
+	/*
 	switch (UART_rx_buffer[UART_COMMAND_BYTE])
 	{
 	case VOID_COMMAND:
@@ -57,6 +64,7 @@ void UART_message_decode(UART_HandleTypeDef *huart_pointer)
 		break;
 	}
 	}
+	*/
 }
 
 uint64_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer)
