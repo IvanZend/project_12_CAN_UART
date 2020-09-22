@@ -213,6 +213,7 @@ void TIM2_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-
+//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//UART_message_decode(&huart2);
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
