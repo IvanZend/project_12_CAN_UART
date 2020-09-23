@@ -80,25 +80,16 @@
 #define UART_MESSAGE_SIZE		8
 
 
-typedef enum
-{
-	VOID_COMMAND,
-	WRITE_BYTE,
-	WRITE_LONG_VALUE,
-	READ_BYTE,
-	READ_LONG_VALUE,
-
-} LimitSwitchState_EnumTypeDef;
-
-
 uint8_t UART_rx_buffer[UART_MESSAGE_SIZE];
 uint8_t UART_tx_buffer[UART_MESSAGE_SIZE];
 
-void UART_message_decode (UART_HandleTypeDef *huart);
+void UART_message_check (UART_HandleTypeDef *huart);
 uint64_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer);
 void distrbute_digits_to_bytes(uint64_t value_to_distribute, uint8_t number_of_values, uint8_t *byte_array_pointer);
 void init_array_by_zero(uint8_t array_size, uint8_t* array_pointer);
 void FLASH_erase_write(uint64_t value_to_write);
 uint32_t GetPage(uint32_t Addr);
+void dip_switch_emulate_decode(uint8_t* array_pointer);
+void flash_vrite_page(uint32_t Addr, uint64_t value);
 
 #endif /* INC_USER_FILE_12_H_ */

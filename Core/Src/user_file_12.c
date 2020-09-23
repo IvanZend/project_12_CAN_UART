@@ -9,65 +9,27 @@
 #include "stdio.h"
 
 extern UART_HandleTypeDef huart2;
+extern TIM_HandleTypeDef htim3;
 
-#define UART_TIMEOUT						1000	// 0xfffffffful
+#define UART_TIMEOUT						100	// 0xfffffffful
 #define UART_LONG_VALUE_LENGHT_BYTES		4
 #define UART_COMMAND_BYTE					0
 #define UART_DATA_BYTE						1
 
-#define FLASH_USER_START_ADDR   	ADDR_FLASH_PAGE_4   /* Start @ of user Flash area */
+#define DIP_SWITCH_STATE_FLASH   	ADDR_FLASH_PAGE_4   /* Start @ of user Flash area */
+#define FLASH_USER_START_ADDR		ADDR_FLASH_PAGE_4
 #define FLASH_USER_END_ADDR     	(ADDR_FLASH_PAGE_63 + FLASH_PAGE_SIZE - 1)   /* End @ of user Flash area */
 #define DATA_64                     ((uint64_t)0x1)
 
-void UART_message_decode(UART_HandleTypeDef *huart_pointer)
+uint64_t UART_recieve_timer_counter = 0;
+
+void UART_message_check(UART_HandleTypeDef *huart_pointer)
 {
-	init_array_by_zero(sizeof(UART_rx_buffer), &UART_rx_buffer[0]);
-
-	HAL_UART_Receive(huart_pointer, UART_rx_buffer, (uint16_t)UART_MESSAGE_SIZE, UART_TIMEOUT);
-	uint8_t test_value = UART_rx_buffer[1];
-	if (test_value)
+	init_array_by_zero(sizeof(UART_rx_buffer), UART_rx_buffer);
+	if ((HAL_UART_Receive(huart_pointer, UART_rx_buffer, (uint16_t)UART_MESSAGE_SIZE, UART_TIMEOUT)) != HAL_TIMEOUT)
 	{
-
+		dip_switch_emulate_decode(UART_rx_buffer);
 	}
-
-	switch (UART_rx_buffer[UART_COMMAND_BYTE])
-	{
-	case VOID_COMMAND:
-	{
-
-		break;
-	}
-	case WRITE_BYTE:
-	{
-		//FLASH_erase_write((uint64_t)UART_rx_buffer[UART_DATA_BYTE]);
-
-		break;
-	}
-	case WRITE_LONG_VALUE:
-	{
-		uint64_t long_value = unite_digits_sequence(UART_LONG_VALUE_LENGHT_BYTES, &UART_rx_buffer[UART_DATA_BYTE]);
-		//HAL_FLASH_Program(FLASH_TYPEPROGRAM_FAST, FLASH_USER_START_ADDR, long_value);
-		break;
-	}
-	case READ_BYTE:
-	{
-		uint64_t value_from_memory = *(__IO uint64_t *)FLASH_USER_START_ADDR;
-		init_array_by_zero(sizeof(UART_tx_buffer), &UART_tx_buffer[0]);
-		UART_tx_buffer[0] = value_from_memory;
-		UART_tx_buffer[1] = 9;
-		HAL_UART_Transmit(&huart2, UART_tx_buffer, sizeof(UART_tx_buffer), 10);
-		break;
-	}
-	case READ_LONG_VALUE:
-	{
-		uint64_t value_from_memory = *(__IO uint64_t *)FLASH_USER_START_ADDR;
-		init_array_by_zero(sizeof(UART_tx_buffer), &UART_tx_buffer[0]);
-		distrbute_digits_to_bytes(value_from_memory, UART_LONG_VALUE_LENGHT_BYTES, &UART_tx_buffer[0]);
-		HAL_UART_Transmit(&huart2, UART_tx_buffer, sizeof(UART_tx_buffer), 10);
-		break;
-	}
-	}
-
 }
 
 uint64_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer)
@@ -124,13 +86,8 @@ void FLASH_erase_write(uint64_t value_to_write)
 	EraseInitStruct.NbPages     = NbOfPages;
 
 	HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
-
 	Address = FLASH_USER_START_ADDR;
-
-
 	HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, Address, value_to_write);
-
-
 	HAL_FLASH_Lock();
 
 	uint64_t value_from_memory = *(__IO uint64_t *)Address;
@@ -138,10 +95,44 @@ void FLASH_erase_write(uint64_t value_to_write)
 	{
 
 	}
-
 }
 
 uint32_t GetPage(uint32_t Addr)
 {
   return (Addr - FLASH_BASE) / FLASH_PAGE_SIZE;;
+}
+
+void dip_switch_emulate_decode(uint8_t* array_pointer)
+{
+	switch (UART_rx_buffer[UART_COMMAND_BYTE])
+	{
+	case 0x01:
+	{
+		flash_vrite_page(DIP_SWITCH_STATE_FLASH, UART_rx_buffer[UART_DATA_BYTE]);
+		break;
+	}
+	}
+}
+
+void flash_vrite_page(uint32_t Addr, uint64_t value_to_write)
+{
+	uint32_t FirstPage = 0;
+	uint32_t PageError = 0;
+	FLASH_EraseInitTypeDef EraseInitStruct;
+
+	HAL_FLASH_Unlock();
+	__HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR);
+	FirstPage = GetPage(Addr);
+	EraseInitStruct.TypeErase   = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.Page        = FirstPage;
+	EraseInitStruct.NbPages     = 1;
+	HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+	HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, Addr, value_to_write);
+	HAL_FLASH_Lock();
+
+	uint64_t value_from_memory = *(__IO uint64_t *)Addr;
+	if (value_from_memory)
+	{
+
+	}
 }
