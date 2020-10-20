@@ -9,6 +9,7 @@
 #define INC_USER_FILE_12_H_
 
 #include "main.h"
+#include <string.h>
 
 /* Base address of the Flash pages */
 
@@ -77,19 +78,69 @@
 #define ADDR_FLASH_PAGE_62    ((uint32_t)0x0801F000) /* Base @ of Page 62, 2 Kbytes */
 #define ADDR_FLASH_PAGE_63    ((uint32_t)0x0801F800) /* Base @ of Page 63, 2 Kbytes */
 
-#define UART_MESSAGE_SIZE		8
+#define CHAR_CODE_UART_MESSAGE_START 	0x23
+#define CHAR_CODE_UART_MESSAGE_END 		0x0A
 
+#define UART_MESSAGE_SIZE		1
+#define RX_QUEUE_BUFFER_SIZE	255
+#define TX_QUEUE_BUFFER_SIZE	255
+#define UART_STRING_MAX_SIZE	128
 
+typedef enum
+{
+	NO_ERROR,
+	RX_QUEUE_OVERFLOW,
+	TX_QUEUE_OVERFLOW,
+	START_OF_MESSAGE_MISSED,
+	END_OF_MESSAGE_MISSED,
+	MAX_MESSAGE_LENGHT_EXCEEDED,
+
+} UARTErrorCode_EnumTypeDef;
+
+typedef enum
+{
+	GET_FIRMWARE_VERSION,
+	GET_GRID_STATE
+
+} CommandCode_EnumTypeDef;
+
+UARTErrorCode_EnumTypeDef uart_error_state;
 uint8_t UART_rx_buffer[UART_MESSAGE_SIZE];
 uint8_t UART_tx_buffer[UART_MESSAGE_SIZE];
+uint8_t RX_string_buffer[UART_STRING_MAX_SIZE];
+uint8_t RX_string_buffer_counter;
+uint8_t RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_MESSAGE_SIZE];
+uint8_t RX_queue_buffer_write_counter;
+uint8_t RX_queue_buffer_read_counter;
+uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_MESSAGE_SIZE];
+uint8_t TX_queue_buffer_write_counter;
+uint8_t TX_queue_buffer_read_counter;
+char UART_string_command_return_test_value[UART_STRING_MAX_SIZE];
+char UART_string_command_get_firmware_version[UART_STRING_MAX_SIZE];
+char UART_string_command_get_device_status[UART_STRING_MAX_SIZE];
+char UART_string_command_get_grid_state[UART_STRING_MAX_SIZE];
+char UART_string_command_get_movement_speed[UART_STRING_MAX_SIZE];
 
+
+void init_UART_buffers(void);
+void UART_error_handler(UARTErrorCode_EnumTypeDef error_type);
+void UART_IT_handler(void);
+void add_byte_to_string(void);
+void add_message_to_RX_queue_buffer(void);
+void parse_RX_message_from_queue(void);
+void parse_UART_message(uint8_t* buffer_to_parse_pointer);
+void add_char_message_to_TX_queue_buffer(char* message_to_transmit_pointer);
+void transmit_messages_IT_handler(void);
+void init_char_array_by_zero(uint8_t array_size, char* array_pointer);
+
+/*
 void UART_message_check (UART_HandleTypeDef *huart);
 uint64_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer);
 void distrbute_digits_to_bytes(uint64_t value_to_distribute, uint8_t number_of_values, uint8_t *byte_array_pointer);
-void init_array_by_zero(uint8_t array_size, uint8_t* array_pointer);
 void FLASH_erase_write(uint64_t value_to_write);
 uint32_t GetPage(uint32_t Addr);
 void dip_switch_emulate_decode(uint8_t* array_pointer);
 void flash_vrite_page(uint32_t Addr, uint64_t value);
+*/
 
 #endif /* INC_USER_FILE_12_H_ */
