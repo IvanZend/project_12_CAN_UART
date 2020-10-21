@@ -37,17 +37,19 @@ void init_UART_buffers(void)
 	message_end_flag = 1;
 
 	RX_string_buffer_counter = 1;						// счётчик элемента строки-буфера
-	for (int i = 0; i < UART_STRING_MAX_SIZE; i++)		// буфер для хранения принимаемой строки инициализируем нулями
+
+	for (uint8_t i = 0; i < sizeof(RX_string_buffer); i++)		// буфер для хранения принимаемой строки инициализируем нулями
 	{
 		RX_string_buffer[i] = 0;
 	}
+
 	RX_string_buffer[RX_string_buffer_counter] = CHAR_CODE_UART_MESSAGE_END;  // записываем символ окончания строки в [1]-й элемент буфера (для старта без ошибок)
 
 	RX_queue_buffer_write_counter = 0;					// обнуляем счётчитк элемента очереди на парсинг, в который ведётся запись
 	RX_queue_buffer_read_counter = 0;					// обнуляем счётчик элемента очереди на парсинг, из которого ведётся чтение
-	for (int i = 0; i < RX_QUEUE_BUFFER_SIZE; i++)		// инициализируем нулями массив очереди на парсинг
+	for (int i = 0; i < sizeof(RX_queue_buffer); i++)		// инициализируем нулями массив очереди на парсинг
 	{
-		for (int ii = 0; i < UART_MESSAGE_SIZE; i++)
+		for (int ii = 0; i < sizeof(RX_queue_buffer[i]); i++)
 		{
 			RX_queue_buffer[i][ii] = 0;
 		}
@@ -68,6 +70,7 @@ void init_UART_buffers(void)
 	sprintf(UART_string_command_get_device_status, 		"%s", "get_device_status");
 	sprintf(UART_string_command_get_grid_state, 		"%s", "get_grid_state");
 	sprintf(UART_string_command_get_movement_speed, 	"%s", "get_movement_speed");
+
 }
 
 // обработчик ошибок UART
