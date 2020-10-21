@@ -18,21 +18,34 @@ extern UART_HandleTypeDef huart2;
 #define FLASH_USER_START_ADDR		ADDR_FLASH_PAGE_4
 #define FLASH_USER_END_ADDR     	(ADDR_FLASH_PAGE_63 + FLASH_PAGE_SIZE - 1)   /* End @ of user Flash area */
 
+/*
+ * Описание алгоритма.
+ *
+ * Когда на UART приходит байт, происходит прерывание. Считыаем пришедший байт и записываем в строку-буфер.
+ * При этом проверяем, есть ли в строке-буфере нулевой элемент - начало сообщения, и последний элемент - конец сообщения.
+ * Когда сообщение записано целиком (начальный байт, данные, конечный байт), содержимое строки-буфера переписываем в очередь на парсинг.
+ * Этот промежуточный строка-буфер необходим, чтобы в очередь на парсинг уходили завершённые сообщения без ошибок.
+ * Очередь на парсинг представляет из себя двумерный массив [i][ii], где [i] - номер сообщения, [ii] - номер символа в сообщении.
+ * Парсинг осуществляется по некому событию, независимому от прерываний UART. Событие парсинга имеет низший приоритет, чтобы не мешать приёму/отправке по UART.
+ */
+
 // стартовая инициализация счётчиков и буферов UART
 void init_UART_buffers(void)
 {
+	UART_buffer_counter = 0;
 	uart_error_state = NO_ERROR;						// ошибка отсутствует
+	message_end_flag = 1;
 
-	RX_string_buffer_counter = 1;						//
-	for (int i = 0; i < UART_STRING_MAX_SIZE; i++)		// буфер для хранения принятой строки инициализируем нулями
+	RX_string_buffer_counter = 1;						// счётчик элемента строки-буфера
+	for (int i = 0; i < UART_STRING_MAX_SIZE; i++)		// буфер для хранения принимаемой строки инициализируем нулями
 	{
 		RX_string_buffer[i] = 0;
 	}
-	RX_string_buffer[RX_string_buffer_counter] = CHAR_CODE_UART_MESSAGE_END;	// записываем код окончания строки во ВТОРОЙ элемент буфера (для старта без ошибок)
+	RX_string_buffer[RX_string_buffer_counter] = CHAR_CODE_UART_MESSAGE_END;  // записываем символ окончания строки в [1]-й элемент буфера (для старта без ошибок)
 
-	RX_queue_buffer_write_counter = 0;					// выставляем в 0 счётчитк элемента буфера, в который ведётся запись
-	RX_queue_buffer_read_counter = 0;					// выставляем в 0 счётчик элемента буфера, из которого ведётся чтение
-	for (int i = 0; i < RX_QUEUE_BUFFER_SIZE; i++)		//
+	RX_queue_buffer_write_counter = 0;					// обнуляем счётчитк элемента очереди на парсинг, в который ведётся запись
+	RX_queue_buffer_read_counter = 0;					// обнуляем счётчик элемента очереди на парсинг, из которого ведётся чтение
+	for (int i = 0; i < RX_QUEUE_BUFFER_SIZE; i++)		// инициализируем нулями массив очереди на парсинг
 	{
 		for (int ii = 0; i < UART_MESSAGE_SIZE; i++)
 		{
@@ -40,17 +53,17 @@ void init_UART_buffers(void)
 		}
 	}
 
-	TX_queue_buffer_write_counter = 0;
-	TX_queue_buffer_read_counter = 0;
-	for (int i = 0; i < TX_QUEUE_BUFFER_SIZE; i++)
+	TX_queue_buffer_write_counter = 0;					// обнуляем счётчик записи в очередь на отправку
+	TX_queue_buffer_read_counter = 0;					// обнуляем счётчик считывания из очереди на отправку
+	for (int i = 0; i < TX_QUEUE_BUFFER_SIZE; i++)		// инициализируем нулями массив очереди на отправку
 	{
-		for (int ii = 0; i < UART_MESSAGE_SIZE; i++)
+		for (int ii = 0; i < UART_MESSAGE_SIZE; i++)	//
 		{
 			TX_queue_buffer[i][ii] = 0;
 		}
 	}
 
-	sprintf(UART_string_command_return_test_value, 		"%s", "return_test_value");
+	sprintf(UART_string_command_return_test_value, 		"%s", "return_test_value");			// записываем строки, содержащие команды
 	sprintf(UART_string_command_get_firmware_version, 	"%s", "get_firmware_version");
 	sprintf(UART_string_command_get_device_status, 		"%s", "get_device_status");
 	sprintf(UART_string_command_get_grid_state, 		"%s", "get_grid_state");
@@ -103,81 +116,120 @@ void UART_error_handler(UARTErrorCode_EnumTypeDef error_type)
 void UART_IT_handler(void)
 {
 	HAL_UART_Receive_IT(&huart2, (uint8_t *)UART_rx_buffer, UART_MESSAGE_SIZE);
-	add_byte_to_string();
+	UART_buffer_counter++;
+	if (UART_buffer_counter >= UART_MESSAGE_SIZE)
+	{
+		add_byte_to_string();
+		init_int_array_by_zero(UART_MESSAGE_SIZE, UART_rx_buffer);
+		UART_buffer_counter = 0;
+
+	}
 }
 
-// добавляем принятый байт в буферную строку
+// добавляем принятый байт в строку-буфер
 void add_byte_to_string(void)
 {
-	if(UART_rx_buffer[0] == CHAR_CODE_UART_MESSAGE_START)								// если приняли стартовый символ
+	for (int i = 0; i < UART_MESSAGE_SIZE; i++)
 	{
-		if (RX_string_buffer[RX_string_buffer_counter] != CHAR_CODE_UART_MESSAGE_END)	// если предыдущий записанный байт не является концом сообщения
+		if(UART_rx_buffer[i] == CHAR_CODE_UART_MESSAGE_START)								// если приняли стартовый символ
 		{
-			UART_error_handler(END_OF_MESSAGE_MISSED);									// ошибка: пропущен конец предыдущего сообщения
+			if (!message_end_flag)															// если ранее не было принято окончание сообщения
+			{
+				UART_error_handler(END_OF_MESSAGE_MISSED);									// ошибка: пропущен конец предыдущего сообщения
+			}
+			RX_string_buffer_counter = 0;													// обнуляем счётчик элемента в строке-буфере
+			message_end_flag = 0;
 		}
-		RX_string_buffer_counter = 0;
-	}
-	RX_string_buffer[RX_string_buffer_counter] = UART_rx_buffer[0];
-	if (RX_string_buffer[0] != CHAR_CODE_UART_MESSAGE_START)
-	{
-		UART_error_handler(START_OF_MESSAGE_MISSED);
-	}
-	if (RX_string_buffer[RX_string_buffer_counter] == CHAR_CODE_UART_MESSAGE_END)
-	{
-		add_message_to_RX_queue_buffer();
-		RX_string_buffer_counter = 0;
-	}
-	RX_string_buffer_counter++;
-	if (RX_string_buffer_counter >= UART_STRING_MAX_SIZE)
-	{
-		UART_error_handler(MAX_MESSAGE_LENGHT_EXCEEDED);
+
+		RX_string_buffer[RX_string_buffer_counter] = UART_rx_buffer[i];						// записываем принятый байт в текущий элемент строки-буфера
+
+		if (RX_string_buffer[0] != CHAR_CODE_UART_MESSAGE_START)							// если нулевой элемент строки-буфера не содержит стартового символа
+		{
+			UART_error_handler(START_OF_MESSAGE_MISSED);									// ошибка: пропущено начало сообщения
+		}
+		if (RX_string_buffer[RX_string_buffer_counter] == CHAR_CODE_UART_MESSAGE_END)		// если текущий элемент строки-буфера содержит символ конца сообщения
+		{
+			add_message_to_RX_queue_buffer();												// отправляем сообщение в очередь на парсинг
+			RX_string_buffer_counter = 0;													// обнуляем счётчик элемента строки-буфера
+			message_end_flag = 1;
+		}
+		if (RX_string_buffer_counter >= UART_STRING_MAX_SIZE)								// если достигли максимальной длины строки
+		{
+			UART_error_handler(MAX_MESSAGE_LENGHT_EXCEEDED);								// ошибка: превышена максимальная длина строки
+		}
+		RX_string_buffer_counter++;
 	}
 }
 
+// добавляем сообщение в очередь на парсинг
 void add_message_to_RX_queue_buffer(void)
 {
-	for (int i = 0; i < RX_string_buffer_counter; i++)
+	for (int i = 0; i < RX_string_buffer_counter; i++)						//
 	{
-		RX_queue_buffer[RX_queue_buffer_write_counter][i] = UART_rx_buffer[i];
+		RX_queue_buffer[RX_queue_buffer_write_counter][i] = RX_string_buffer[i];
 	}
-	RX_queue_buffer_write_counter++;
-	if (RX_queue_buffer_write_counter >= RX_QUEUE_BUFFER_SIZE)
+	RX_queue_buffer[RX_queue_buffer_write_counter][RX_string_buffer_counter] = CHAR_CODE_UART_MESSAGE_END;
+
+	RX_queue_buffer_write_counter++;										// инкрементируем счётчик элемента буфера-очереди
+	if (RX_queue_buffer_write_counter >= RX_QUEUE_BUFFER_SIZE)				// если превысили максимальное количество элементов в буфере-очереди
 	{
-		UART_error_handler(RX_QUEUE_OVERFLOW);
+		UART_error_handler(RX_QUEUE_OVERFLOW);								// ошибка: очередь на парсинг переполнена
 	}
 }
 
+// парсим сообщения из буфера-очереди
 void parse_RX_message_from_queue(void)
 {
-	parse_UART_message(RX_queue_buffer[RX_queue_buffer_read_counter]);
-	if (RX_queue_buffer_read_counter >= RX_queue_buffer_write_counter)
+	if (RX_queue_buffer[0][0] == CHAR_CODE_UART_MESSAGE_START)				// если в буфере-очереди содержится хотя бы одно сообщение
 	{
-		RX_queue_buffer_write_counter = 0;
-		RX_queue_buffer_read_counter = 0;
-	}
-	else
-	{
-		RX_queue_buffer_read_counter++;
+		for (int i = 0; i < RX_queue_buffer_write_counter; i++)
+		{
+			parse_UART_message();				// отправляем на парсинг текущее сообщение
+
+			init_int_array_by_zero(sizeof(RX_queue_buffer[RX_queue_buffer_read_counter]), \
+					RX_queue_buffer[RX_queue_buffer_read_counter]);				// инициализируем нулями отпарсенное сообщение в очереди
+
+			RX_queue_buffer_read_counter++;									// иначе инкрементируем счётчик считывания из буфера-очереди
+
+			if (RX_queue_buffer_read_counter >= RX_queue_buffer_write_counter)	// если мы отпарсили все сообщения в очереди
+			{
+				RX_queue_buffer_write_counter = 0;								// обнуляем счётчик записи в буфер-очередь
+				RX_queue_buffer_read_counter = 0;								// обнуляем счётчик считывания из буфера-очереди
+			}
+		}
 	}
 }
 
-void parse_UART_message(uint8_t* buffer_to_parse_pointer)
+void parse_UART_message(void)
 {
-	char char_message_array[UART_STRING_MAX_SIZE];
-	init_char_array_by_zero(sizeof(char_message_array), char_message_array);
-	char buff_array[2];
-	int i = 1;
-	while (buffer_to_parse_pointer[0] != CHAR_CODE_UART_MESSAGE_END)
+	if (compare_int_and_char_arrays(RX_queue_buffer[RX_queue_buffer_read_counter], UART_string_command_return_test_value))
 	{
-		sprintf(buff_array, "%x", buffer_to_parse_pointer[i]);
-		char_message_array[i] = buff_array[0];
-		i++;
+		char tmp_arr_1[] = "A";													// создаём строку, которую отправим в ответ
+		add_char_message_to_TX_queue_buffer(sizeof(tmp_arr_1), tmp_arr_1);							// отправляем строку в ответ
 	}
 
-	if (!strcmp(char_message_array, UART_string_command_return_test_value))
+	if (compare_int_and_char_arrays(RX_queue_buffer[RX_queue_buffer_read_counter], UART_string_command_get_firmware_version))
 	{
-		char tmp_arr_1[] = "A";
-		add_char_message_to_TX_queue_buffer(tmp_arr_1);
+		char tmp_arr_2[] = "Alpha v1.0";													// создаём строку, которую отправим в ответ
+		add_char_message_to_TX_queue_buffer(sizeof(tmp_arr_2), tmp_arr_2);							// отправляем строку в ответ
+	}
+
+	/*
+	char char_message_array[UART_STRING_MAX_SIZE];								// создаём буферный массив для хранения символьной строки
+	init_char_array_by_zero(sizeof(char_message_array), char_message_array);	// инициализируем нулями буферный массив
+	char buff_array[2];															// создаём буферный массив для хранения ASCII-символа
+	int i = 1;																	// создаём счётчик элемента в символьной строке
+	while (buffer_to_parse_pointer[i] != CHAR_CODE_UART_MESSAGE_END)			// до тех пор пока не наткнёмся на символ конца строки
+	{
+		sprintf(buff_array, "%x", buffer_to_parse_pointer[i]);					// конвертируем hex-значение в ASCII-символ
+		char_message_array[i-1] = buff_array[0];									// дописываем полученный символ в символьную строку
+		i++;																	// инкрементируем счётчик элемента символьной строки
+	}																			// в результате получаем символьную строку без начального и конечного символа
+
+	if (!strcmp(char_message_array, UART_string_command_return_test_value))		// сравниваем полученную строку с образцом, хранящимся в памяти
+	{
+		char tmp_arr_1[] = "A";													// создаём строку, которую отправим в ответ
+		add_char_message_to_TX_queue_buffer(tmp_arr_1);							// отправляем строку в ответ
 	}
 	if (!strcmp(char_message_array, UART_string_command_get_firmware_version))
 	{
@@ -199,39 +251,63 @@ void parse_UART_message(uint8_t* buffer_to_parse_pointer)
 		char tmp_arr_5[] = "3400 step/sec";
 		add_char_message_to_TX_queue_buffer(tmp_arr_5);
 	}
+	*/
 }
 
-void add_char_message_to_TX_queue_buffer(char* message_to_transmit_pointer)
+_Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer)
 {
-	for (int i = 0; i < sizeof(message_to_transmit_pointer); i++)
+	_Bool arrays_match = 1;
+	int i = 1;
+	while (int_array_pointer[i] != CHAR_CODE_UART_MESSAGE_END)
 	{
-		TX_queue_buffer[TX_queue_buffer_write_counter][i] = message_to_transmit_pointer[i];
+		if(int_array_pointer[i] != UART_string_command_return_test_value[i-1])
+		{
+			arrays_match = 0;
+		}
+		i++;
 	}
-	if (TX_queue_buffer_write_counter == TX_QUEUE_BUFFER_SIZE)
+
+	return arrays_match;
+}
+
+// добавляем сообщение в очередь на отправку
+void add_char_message_to_TX_queue_buffer(uint8_t message_to_transmit_size, char* message_to_transmit_pointer)
+{
+	TX_queue_buffer[TX_queue_buffer_write_counter][0] = CHAR_CODE_UART_MESSAGE_START;			// добавляем стартовый символ в начало сообщения
+	int i = 1;
+	for (i = 1; i <= message_to_transmit_size; i++)								// записываем содержимое отправляемого сообщения
 	{
-		UART_error_handler(TX_QUEUE_OVERFLOW);
+		TX_queue_buffer[TX_queue_buffer_write_counter][i] = message_to_transmit_pointer[i - 1];		// посимвольно записываем пришедшее сообщение в очередь на отправку
 	}
-	else
+	TX_queue_buffer[TX_queue_buffer_write_counter][i + 1] = CHAR_CODE_UART_MESSAGE_END;			// добавляем конечный символ в конец сообщения
+	TX_queue_buffer_write_counter++;									// инкрементируем счётчик записи элемента в очереди на отправку
+	if (TX_queue_buffer_write_counter == TX_QUEUE_BUFFER_SIZE)			// если превышен максимальный размер в очереди на отправку
 	{
-		TX_queue_buffer_write_counter++;
+		UART_error_handler(TX_QUEUE_OVERFLOW);							// ошибка: очередь на отправку переполнена
 	}
 }
 
+// обработчик прерывания для отправки сообщения по UART
 void transmit_messages_IT_handler(void)
 {
-	if (TX_queue_buffer_write_counter > 0)
+
+	if (TX_queue_buffer[0][0] == CHAR_CODE_UART_MESSAGE_START)			// если в очереди на отправку содержится хотя бы одно сообщение
 	{
-		for (int i = 0; i < TX_queue_buffer_write_counter; i++)
+		for (int i = 0; i < TX_queue_buffer_write_counter; i++)			// до тех пор пока мы не достигнем количества записанных сообщений в очередь
 		{
-			for (int ii = 0; ii < UART_STRING_MAX_SIZE; ii++)
+			int ii = 0;													// создаём счётчик символа в сообщении
+			while (TX_queue_buffer[i][ii - 1] != CHAR_CODE_UART_MESSAGE_END)	// до тех пор пока не пройдём символ конца сообщения
 			{
-				HAL_UART_Transmit(&huart2, &TX_queue_buffer[i][ii], UART_MESSAGE_SIZE, UART_TIMEOUT);
+				HAL_UART_Transmit(&huart2, &TX_queue_buffer[i][ii], UART_MESSAGE_SIZE, UART_TIMEOUT);	// отправляем символ по UART
+				ii++;													// инкрементируем счётчик символа
 			}
+			init_int_array_by_zero(sizeof(TX_queue_buffer[i]), TX_queue_buffer[i]);	// инициализируем нулями отправленную строку в очереди
 		}
-		TX_queue_buffer_write_counter = 0;
+		TX_queue_buffer_write_counter = 0;								// когда отправили все сообщения из очереди, обнуляем счётчик сообщений
 	}
 }
 
+// инициализируем нулями символьный массив
 void init_char_array_by_zero(uint8_t array_size, char* array_pointer)
 {
 	for (int i = 0; i < array_size; i++)
@@ -240,6 +316,14 @@ void init_char_array_by_zero(uint8_t array_size, char* array_pointer)
 	}
 }
 
+// инициализируем нулями целочисленный массив
+void init_int_array_by_zero(uint8_t array_size, uint8_t* array_pointer)
+{
+	for (int i = 0; i < array_size; i++)
+	{
+		*(array_pointer + i) = 0;
+	}
+}
 
 /*
 
