@@ -104,6 +104,7 @@ typedef enum
 
 } CommandCode_EnumTypeDef;
 
+_Bool message_start_flag;
 _Bool message_end_flag;
 UARTErrorCode_EnumTypeDef uart_error_state;
 uint8_t UART_buffer_counter;
@@ -114,7 +115,7 @@ uint8_t RX_string_buffer_counter;
 uint8_t RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
 uint8_t RX_queue_buffer_write_counter;
 uint8_t RX_queue_buffer_read_counter;
-uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_MESSAGE_SIZE];
+uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
 uint8_t TX_queue_buffer_write_counter;
 uint8_t TX_queue_buffer_read_counter;
 char UART_string_command_return_test_value[UART_STRING_MAX_SIZE];
@@ -130,7 +131,7 @@ void UART_IT_handler(void);
 void add_byte_to_string(void);
 void add_message_to_RX_queue_buffer(void);
 void parse_RX_message_from_queue(void);
-void parse_UART_message(void);
+void parse_UART_message(uint8_t buffer_element_counter);
 _Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer);
 void add_char_message_to_TX_queue_buffer(uint8_t message_to_transmit_size, char* message_to_transmit_pointer);
 void transmit_messages_IT_handler(void);
