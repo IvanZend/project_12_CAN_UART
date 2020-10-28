@@ -65,13 +65,6 @@ void init_UART_buffers(void)
 			TX_queue_buffer[i][ii] = 0;
 		}
 	}
-
-	strcpy(UART_string_command_return_test_value, 		"return_test_value");
-	strcpy(UART_string_command_get_firmware_version, 	"get_firmware_version");
-	strcpy(UART_string_command_get_device_status, 		"get_device_status");
-	strcpy(UART_string_command_get_grid_state, 			"get_grid_state");
-	strcpy(UART_string_command_get_movement_speed, 		"get_movement_speed");
-
 }
 
 // обработчик ошибок UART
@@ -220,56 +213,18 @@ void parse_RX_message_from_queue(void)
 void parse_UART_message(uint8_t buffer_element_counter)
 {
 	// !!! попробовать STRCMP
-	if (compare_int_and_char_arrays(RX_queue_buffer[buffer_element_counter], "return_test_value"))		// записывать значение строки сюда
+	if (compare_int_and_char_arrays(RX_queue_buffer[buffer_element_counter], "V"))		// записывать значение строки сюда
 	{
-		char tmp_arr_1[] = "test_value: 42";													// создаём строку, которую отправим в ответ
+		char tmp_arr_1[] = "USB-CAN-SI-M Emulator";													// создаём строку, которую отправим в ответ
 		add_char_message_to_TX_queue_buffer(sizeof(tmp_arr_1), tmp_arr_1);							// отправляем строку в ответ
 	}
 
-	if (compare_int_and_char_arrays(RX_queue_buffer[buffer_element_counter], UART_string_command_get_firmware_version))
+	if (compare_int_and_char_arrays(RX_queue_buffer[buffer_element_counter], "N"))
 	{
-		char tmp_arr_2[] = "Alpha v1.0";													// создаём строку, которую отправим в ответ
+		char tmp_arr_2[] = "Serial number: 0x0";													// создаём строку, которую отправим в ответ
 		add_char_message_to_TX_queue_buffer(sizeof(tmp_arr_2), tmp_arr_2);							// отправляем строку в ответ
 	}
 
-	/*
-	char char_message_array[UART_STRING_MAX_SIZE];								// создаём буферный массив для хранения символьной строки
-	init_char_array_by_zero(sizeof(char_message_array), char_message_array);	// инициализируем нулями буферный массив
-	char buff_array[2];															// создаём буферный массив для хранения ASCII-символа
-	int i = 1;																	// создаём счётчик элемента в символьной строке
-	while (buffer_to_parse_pointer[i] != CHAR_CODE_UART_MESSAGE_END)			// до тех пор пока не наткнёмся на символ конца строки
-	{
-		sprintf(buff_array, "%x", buffer_to_parse_pointer[i]);					// конвертируем hex-значение в ASCII-символ
-		char_message_array[i-1] = buff_array[0];									// дописываем полученный символ в символьную строку
-		i++;																	// инкрементируем счётчик элемента символьной строки
-	}																			// в результате получаем символьную строку без начального и конечного символа
-
-	if (!strcmp(char_message_array, UART_string_command_return_test_value))		// сравниваем полученную строку с образцом, хранящимся в памяти
-	{
-		char tmp_arr_1[] = "A";													// создаём строку, которую отправим в ответ
-		add_char_message_to_TX_queue_buffer(tmp_arr_1);							// отправляем строку в ответ
-	}
-	if (!strcmp(char_message_array, UART_string_command_get_firmware_version))
-	{
-		char tmp_arr_2[] = "Alpha v1.0";
-		add_char_message_to_TX_queue_buffer(tmp_arr_2);
-	}
-	if (!strcmp(char_message_array, UART_string_command_get_device_status))
-	{
-		char tmp_arr_3[] = "DEVICE_STANDBY";
-		add_char_message_to_TX_queue_buffer(tmp_arr_3);
-	}
-	if (!strcmp(char_message_array, UART_string_command_get_grid_state))
-	{
-		char tmp_arr_4[] = "GRID_120";
-		add_char_message_to_TX_queue_buffer(tmp_arr_4);
-	}
-	if (!strcmp(char_message_array, UART_string_command_get_movement_speed))
-	{
-		char tmp_arr_5[] = "3400 step/sec";
-		add_char_message_to_TX_queue_buffer(tmp_arr_5);
-	}
-	*/
 }
 
 _Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer)
@@ -365,6 +320,8 @@ void init_int_array_by_zero(uint8_t array_size, uint8_t* array_pointer)
 		*(array_pointer + i) = 0;
 	}
 }
+
+
 
 /*
 

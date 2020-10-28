@@ -118,11 +118,6 @@ uint8_t RX_queue_buffer_read_counter;
 uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
 uint8_t TX_queue_buffer_write_counter;
 uint8_t TX_queue_buffer_read_counter;
-char UART_string_command_return_test_value[UART_STRING_MAX_SIZE];
-char UART_string_command_get_firmware_version[UART_STRING_MAX_SIZE];
-char UART_string_command_get_device_status[UART_STRING_MAX_SIZE];
-char UART_string_command_get_grid_state[UART_STRING_MAX_SIZE];
-char UART_string_command_get_movement_speed[UART_STRING_MAX_SIZE];
 
 
 void init_UART_buffers(void);
