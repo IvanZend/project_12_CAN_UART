@@ -81,10 +81,10 @@
 #define CHAR_CODE_UART_MESSAGE_START 	0x23
 #define CHAR_CODE_UART_MESSAGE_END 		0x0A
 
-#define UART_MESSAGE_SIZE		8
+#define UART_MESSAGE_SIZE		1
 #define RX_QUEUE_BUFFER_SIZE	4
 #define TX_QUEUE_BUFFER_SIZE	4
-#define UART_STRING_MAX_SIZE	32
+#define UART_STRING_MAX_SIZE	16
 
 typedef enum
 {
@@ -110,37 +110,27 @@ UARTErrorCode_EnumTypeDef uart_error_state;
 uint8_t UART_buffer_counter;
 uint8_t UART_rx_buffer[UART_MESSAGE_SIZE];
 uint8_t UART_tx_buffer[UART_MESSAGE_SIZE];
-uint8_t RX_string_buffer[UART_STRING_MAX_SIZE];
 uint8_t RX_string_buffer_counter;
-uint8_t RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
+char RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
 uint8_t RX_queue_buffer_write_counter;
 uint8_t RX_queue_buffer_read_counter;
 uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
 uint8_t TX_queue_buffer_write_counter;
 uint8_t TX_queue_buffer_read_counter;
+uint8_t RX_string_lenght_buffer[RX_QUEUE_BUFFER_SIZE];
+uint8_t TX_string_lenght_buffer[RX_QUEUE_BUFFER_SIZE];
 
 
 void init_UART_buffers(void);
 void UART_error_handler(UARTErrorCode_EnumTypeDef error_type);
 void UART_IT_handler(void);
-void add_byte_to_string(void);
-void add_message_to_RX_queue_buffer(void);
-void parse_RX_message_from_queue(void);
-void parse_UART_message(uint8_t buffer_element_counter);
-_Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer);
+void add_byte_to_string(uint8_t byte_to_write);
+void RX_queue_polling(void);
+void parse_UART_message(char* buffer_to_parse);
+//_Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer);
 void add_char_message_to_TX_queue_buffer(uint8_t message_to_transmit_size, char* message_to_transmit_pointer);
 void transmit_messages_IT_handler(void);
 void init_char_array_by_zero(uint8_t array_size, char* array_pointer);
 void init_int_array_by_zero(uint8_t array_size, uint8_t* array_pointer);
-
-/*
-void UART_message_check (UART_HandleTypeDef *huart);
-uint64_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer);
-void distrbute_digits_to_bytes(uint64_t value_to_distribute, uint8_t number_of_values, uint8_t *byte_array_pointer);
-void FLASH_erase_write(uint64_t value_to_write);
-uint32_t GetPage(uint32_t Addr);
-void dip_switch_emulate_decode(uint8_t* array_pointer);
-void flash_vrite_page(uint32_t Addr, uint64_t value);
-*/
 
 #endif /* INC_USER_FILE_12_H_ */
