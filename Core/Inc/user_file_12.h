@@ -78,13 +78,48 @@
 #define ADDR_FLASH_PAGE_62    ((uint32_t)0x0801F000) /* Base @ of Page 62, 2 Kbytes */
 #define ADDR_FLASH_PAGE_63    ((uint32_t)0x0801F800) /* Base @ of Page 63, 2 Kbytes */
 
-#define CHAR_CODE_UART_MESSAGE_START 	0x23
-#define CHAR_CODE_UART_MESSAGE_END 		0x0A
+#define CHAR_CODE_UART_MESSAGE_START 			0x23
+#define CHAR_CODE_UART_MESSAGE_END 				CARRIAGE_RETURN_CHAR				// 0x0A
+#define CARRIAGE_RETURN_CHAR					0x0D
+#define	MESSAGE_TEST_VALUE						"return test 0x0"
+#define MESSAGE_COMMAND_LIST_STRING_01 			"List of Supported Commands"
+#define MESSAGE_COMMAND_LIST_STRING_02 			"O - Open The Channel in Normal Mode"
+#define MESSAGE_COMMAND_LIST_STRING_03 			"L - Open The Channel in the Listen Only Mode"
+#define MESSAGE_COMMAND_LIST_STRING_04 			"Y - Open The Channel in Loopback Mode"
+#define MESSAGE_COMMAND_LIST_STRING_05 			"C - Close CAN channel"
+#define MESSAGE_COMMAND_LIST_STRING_06 			"S - Set CAN Bit Rate"
+#define MESSAGE_COMMAND_LIST_STRING_07 			"s - Set Bus Timing Registers"
+#define MESSAGE_COMMAND_LIST_STRING_08 			"t - Transmit a Standard Frame"
+#define MESSAGE_COMMAND_LIST_STRING_09 			"T - Transmit an Extended Frame"
+#define MESSAGE_COMMAND_LIST_STRING_10 			"r - Transmitting a Standard Remote Request Frame"
+#define MESSAGE_COMMAND_LIST_STRING_11 			"R - Transmitting an Extended Remote Request Frame"
+#define MESSAGE_COMMAND_LIST_STRING_12 			"Z - Set TimeStamp On/Off"
+#define MESSAGE_COMMAND_LIST_STRING_13 			"m - Set Acceptance Mask"
+#define MESSAGE_COMMAND_LIST_STRING_14 			"M - Set Acceptance Filter"
+#define MESSAGE_COMMAND_LIST_STRING_15 			"F - Read Status Flag"
+#define MESSAGE_COMMAND_LIST_STRING_16 			"V - Software Version"
+#define MESSAGE_COMMAND_LIST_STRING_17 			"N - Serial Number"
+#define MESSAGE_COMMAND_LIST_STRING_18 			"RST - Reset"
+#define MESSAGE_COMMAND_LIST_STRING_19 			"H, ? or h - List Supported Command"
+#define MESSAGE_USB_CAN_VERSION					"V1.00"
+#define MESSAGE_SERIAL_NUMBER					"T16800158"
+#define STANDARD_CAN_MESSAGE_ID_BYTE		 	1
+#define STANDARD_CAN_MESSAGE_ID_LENGHT_BYTE		3
+#define STANDARD_CAN_MESSAGE_DATA_LENGHT_BYTE 	4
+#define STANDARD_CAN_MESSAGE_DATA_START_BYTE 	5
+#define EXTENDED_CAN_MESSAGE_ID_BYTE		 	STANDARD_CAN_MESSAGE_ID_BYTE
+#define EXTENDED_CAN_MESSAGE_ID_LENGHT_BYTE		8
+#define EXTENDED_CAN_MESSAGE_DATA_LENGHT_BYTE 	9
+#define EXTENDED_CAN_MESSAGE_DATA_START_BYTE 	10
+#define ASCII_TO_INT_CONVERT_BITWISE_SHIFT		4
+#define UART_RX_MESSAGE_SIZE					1
+#define UART_TX_MESSAGE_SIZE					1
+#define RX_QUEUE_BUFFER_SIZE					4
+#define TX_QUEUE_BUFFER_SIZE					4
+#define UART_STRING_MAX_SIZE					64
+#define CAN_RX_MESSAGE_SIZE						20
+#define CAN_RX_BUFFER_SIZE						4
 
-#define UART_MESSAGE_SIZE		1
-#define RX_QUEUE_BUFFER_SIZE	4
-#define TX_QUEUE_BUFFER_SIZE	4
-#define UART_STRING_MAX_SIZE	16
 
 typedef enum
 {
@@ -104,33 +139,60 @@ typedef enum
 
 } CommandCode_EnumTypeDef;
 
-_Bool message_start_flag;
-_Bool message_end_flag;
+typedef struct
+{
+	uint32_t id_type;
+	uint8_t id_lenght_in_bytes;
+	uint8_t id_byte_number;
+	uint8_t data_lenght_byte_number;
+	uint8_t data_start_byte_number;
+
+} CAN_ParametersSet_StructTypeDef;
+
+typedef struct
+{
+	uint8_t CAN_RX_data_buffer[CAN_RX_BUFFER_SIZE][CAN_RX_MESSAGE_SIZE];
+	uint16_t CAN_RX_timestamp_buffer[CAN_RX_BUFFER_SIZE];
+} CAN_DataTimestampBuffer_StructTypeDef;
+
 UARTErrorCode_EnumTypeDef uart_error_state;
+CAN_DataTimestampBuffer_StructTypeDef CAN_RX_data_timestamp_struc_buffer;
 uint8_t UART_buffer_counter;
-uint8_t UART_rx_buffer[UART_MESSAGE_SIZE];
-uint8_t UART_tx_buffer[UART_MESSAGE_SIZE];
-uint8_t RX_string_buffer_counter;
-char RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
-uint8_t RX_queue_buffer_write_counter;
-uint8_t RX_queue_buffer_read_counter;
-uint8_t TX_queue_buffer[TX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
-uint8_t TX_queue_buffer_write_counter;
-uint8_t TX_queue_buffer_read_counter;
-uint8_t RX_string_lenght_buffer[RX_QUEUE_BUFFER_SIZE];
-uint8_t TX_string_lenght_buffer[RX_QUEUE_BUFFER_SIZE];
+uint8_t UART_rx_buffer[UART_RX_MESSAGE_SIZE];
+uint8_t UART_tx_buffer[UART_TX_MESSAGE_SIZE];
+uint8_t UART_RX_string_buffer_counter;
+char UART_RX_queue_buffer[RX_QUEUE_BUFFER_SIZE][UART_STRING_MAX_SIZE];
+uint8_t UART_RX_queue_buffer_write_counter;
+uint8_t UART_RX_string_lenght_buffer[RX_QUEUE_BUFFER_SIZE];
+uint8_t CAN_RX_queue_buffer_write_counter;
 
 
-void init_UART_buffers(void);
+void init_UART_values(void);
 void UART_error_handler(UARTErrorCode_EnumTypeDef error_type);
 void UART_IT_handler(void);
 void add_byte_to_string(uint8_t byte_to_write);
-void RX_queue_polling(void);
+void UART_RX_queue_polling(void);
+void CAN_RX_queue_polling(void);
 void parse_UART_message(char* buffer_to_parse);
+void send_end_char_to_UART(void);
+void complete_and_send_string_to_UART(uint16_t size_of_string, char* string_to_send);
+void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send);
+void CAN_IT_handler(void);
+void parse_CAN_message(uint8_t* CAN_data_buffer_to_parse, uint16_t CAN_timestamp_buffer_to_parse);
+FDCAN_RxHeaderTypeDef CAN_rx_header_get(void);
 //_Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer);
-void add_char_message_to_TX_queue_buffer(uint8_t message_to_transmit_size, char* message_to_transmit_pointer);
+void add_char_message_to_TX_queue_buffer(uint16_t message_to_transmit_size, char* message_to_transmit_pointer);
 void transmit_messages_IT_handler(void);
-void init_char_array_by_zero(uint8_t array_size, char* array_pointer);
-void init_int_array_by_zero(uint8_t array_size, uint8_t* array_pointer);
+void init_char_array_by_zero(uint16_t array_size, char* array_pointer);
+void init_int_array_by_zero(uint16_t array_size, uint8_t* array_pointer);
+//FDCAN_TxHeaderTypeDef CAN_header_get(void);
+//void CAN_test_transmit(FDCAN_HandleTypeDef *hfdcan);
+void init_CAN_values(void);
+CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set);
+void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef CAN_frame_parameters_set);
+uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert);
+uint32_t CAN_message_DLC_bytes_define(uint32_t data_lenght_bytes);
+void CAN_transmit_message(uint32_t id_type, uint32_t identifier, uint32_t data_lenght, uint8_t* tx_data);
+uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift);
 
 #endif /* INC_USER_FILE_12_H_ */

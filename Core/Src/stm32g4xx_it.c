@@ -56,7 +56,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim2;
+extern FDCAN_HandleTypeDef hfdcan1;
 extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
@@ -200,17 +200,17 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles TIM2 global interrupt.
+  * @brief This function handles FDCAN1 interrupt 0.
   */
-void TIM2_IRQHandler(void)
+void FDCAN1_IT0_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM2_IRQn 0 */
+  /* USER CODE BEGIN FDCAN1_IT0_IRQn 0 */
 
-  /* USER CODE END TIM2_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim2);
-  /* USER CODE BEGIN TIM2_IRQn 1 */
-  transmit_messages_IT_handler();
-  /* USER CODE END TIM2_IRQn 1 */
+  /* USER CODE END FDCAN1_IT0_IRQn 0 */
+  HAL_FDCAN_IRQHandler(&hfdcan1);
+  /* USER CODE BEGIN FDCAN1_IT0_IRQn 1 */
+  CAN_IT_handler();
+  /* USER CODE END FDCAN1_IT0_IRQn 1 */
 }
 
 /**
@@ -223,7 +223,8 @@ void TIM3_IRQHandler(void)
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */
-  RX_queue_polling();
+  UART_RX_queue_polling();
+  CAN_RX_queue_polling();
   /* USER CODE END TIM3_IRQn 1 */
 }
 
