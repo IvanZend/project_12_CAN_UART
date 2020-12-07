@@ -270,18 +270,15 @@ void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send)
 
 void CAN_IT_handler(void)
 {
-	if (CAN_RX_queue_buffer_write_counter >= sizeof(CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer))
+	if (CAN_RX_queue_buffer_write_counter >= sizeof(CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer))
 	{
 		CAN_RX_queue_buffer_write_counter = 0;
 	}
 
-	FDCAN_RxHeaderTypeDef message_header;// = CAN_rx_header_get();
-	/* init_int_array_by_zero(sizeof(CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[CAN_RX_queue_buffer_write_counter]), \
-	 CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[CAN_RX_queue_buffer_write_counter]);	*/	// ??? проверить, надо ли
-	HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &message_header, CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[CAN_RX_queue_buffer_write_counter]);
-	CAN_RX_data_timestamp_struc_buffer.CAN_RX_timestamp_buffer[CAN_RX_queue_buffer_write_counter] = HAL_FDCAN_GetTimestampCounter(&hfdcan1);
+	HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_header_buffer[CAN_RX_queue_buffer_write_counter], \
+							CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer[CAN_RX_queue_buffer_write_counter]);
+	CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_timestamp_buffer[CAN_RX_queue_buffer_write_counter] = HAL_FDCAN_GetTimestampCounter(&hfdcan1);
 	CAN_RX_queue_buffer_write_counter++;
-
 }
 
 void CAN_RX_queue_polling(void)
@@ -290,72 +287,207 @@ void CAN_RX_queue_polling(void)
 	{
 		for (int i = 0; i < CAN_RX_queue_buffer_write_counter; i++)
 		{
-			parse_CAN_message(CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[i], CAN_RX_data_timestamp_struc_buffer.CAN_RX_timestamp_buffer[i]);
+			parse_CAN_message(CAN_RX_header_data_timestamp_struct_buffer, i);
 		}
 		CAN_RX_queue_buffer_write_counter = 0;
 	}
 }
 
-void parse_CAN_message(uint8_t* CAN_data_buffer_to_parse, uint16_t CAN_timestamp_buffer_to_parse)
+void parse_CAN_message(CAN_DataTimestampBuffer_StructTypeDef CAN_message_struct_to_parse, uint8_t current_buffer_element_counter)
 {
+	uint8_t id_lenght;
+	char message_type_char;
+	char message_end_char = CARRIAGE_RETURN_CHAR;
+	uint8_t data_lenght;
+	uint8_t CAN_to_UART_message_size;
 
+	if (CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_header_buffer[current_buffer_element_counter].IdType == FDCAN_STANDARD_ID)
+	{
+		id_lenght = STANDARD_CAN_ID_LENGHT;
+		message_type_char = 't';
+	}
+	else
+	{
+		id_lenght = EXTENDED_CAN_ID_LENGHT;
+		message_type_char = 'T';
+	}
+
+	data_lenght = CAN_RX_message_data_lenght_define(CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_header_buffer[current_buffer_element_counter].DataLength)*2;
+
+	uint8_t id_array[id_lenght];
+	convert_int_value_to_ascii_hex_char_array(sizeof(id_array), id_array, CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_header_buffer[current_buffer_element_counter].Identifier);
+
+	uint8_t data_array[data_lenght];
+	for (int i = 0; i < sizeof(data_array); i++)
+	{
+		if ((i % 2) == 0)
+		{
+			uint8_t tmp_arr_2[2];
+			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer[current_buffer_element_counter][i/2]);
+			data_array[i] = tmp_arr_2[0];
+			data_array[i + 1] = tmp_arr_2[1];
+		}
+	}
+
+	uint8_t timestamp_array[CAN_TIMESTAMP_SIZE];
+	convert_int_value_to_ascii_hex_char_array(sizeof(timestamp_array), timestamp_array, CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_timestamp_buffer[current_buffer_element_counter]);
+
+	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + data_lenght + CAN_TIMESTAMP_SIZE + sizeof(message_end_char)];
+	uint8_t message_element_counter = 0;
+	uint8_t cycle_start_value_tmp = 0;
+	CAN_to_UART_message_buffer[0] = message_type_char;
+	message_element_counter++;
+
+	cycle_start_value_tmp = message_element_counter;
+	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)
+	{
+		CAN_to_UART_message_buffer[i] = id_array[i - cycle_start_value_tmp];
+		message_element_counter++;
+	}
+
+	uint8_t data_lengt_tmp_buff = convert_data_lenght_to_DLC_code(data_lenght/2);
+	uint8_t CAN_DLS_char_array[1];
+	convert_int_value_to_ascii_hex_char_array(sizeof(CAN_DLS_char_array), CAN_DLS_char_array, data_lengt_tmp_buff);
+	CAN_to_UART_message_buffer[message_element_counter] = CAN_DLS_char_array[0];
+	message_element_counter++;
+
+	cycle_start_value_tmp = message_element_counter;
+	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)
+	{
+		CAN_to_UART_message_buffer[i] = data_array[i - cycle_start_value_tmp];
+		message_element_counter++;
+	}
+
+	cycle_start_value_tmp = message_element_counter;
+	for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)
+	{
+		CAN_to_UART_message_buffer[i] = timestamp_array[i - cycle_start_value_tmp];
+		message_element_counter++;
+	}
 }
 
-FDCAN_RxHeaderTypeDef CAN_rx_header_get(void)
+uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
 {
-	FDCAN_RxHeaderTypeDef rx_header;
+	uint8_t DLC_code;
 
-	rx_header.Identifier = 0x0;
-	rx_header.IdType = FDCAN_STANDARD_ID;
-	rx_header.RxFrameType = FDCAN_DATA_FRAME;
-	rx_header.DataLength = FDCAN_DLC_BYTES_8;
-	rx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-	rx_header.BitRateSwitch = FDCAN_BRS_OFF;
-	rx_header.FDFormat = FDCAN_CLASSIC_CAN;
-	rx_header.RxTimestamp = 0xFFFF;
-	rx_header.FilterIndex = 0;
-	rx_header.IsFilterMatchingFrame = 0;
+	switch (value_to_convert)
+	{
+	case 0:
+	{
+		DLC_code = 0x0;
+		break;
+	}
+	case 1:
+	{
+		DLC_code = 0x1;
+		break;
+	}
+	case 2:
+	{
+		DLC_code = 0x2;
+		break;
+	}
+	case 3:
+	{
+		DLC_code = 0x3;
+		break;
+	}
+	case 4:
+	{
+		DLC_code = 0x4;
+		break;
+	}
+	case 5:
+	{
+		DLC_code = 0x5;
+		break;
+	}
+	case 6:
+	{
+		DLC_code = 0x6;
+		break;
+	}
+	case 7:
+	{
+		DLC_code = 0x7;
+		break;
+	}
+	case 8:
+	{
+		DLC_code = 0x8;
+		break;
+	}
+	case 12:
+	{
+		DLC_code = 0x9;
+		break;
+	}
+	case 16:
+	{
+		DLC_code = 0xA;
+		break;
+	}
+	case 20:
+	{
+		DLC_code = 0xB;
+		break;
+	}
+	case 24:
+	{
+		DLC_code = 0xC;
+		break;
+	}
+	case 32:
+	{
+		DLC_code = 0xD;
+		break;
+	}
+	case 48:
+	{
+		DLC_code = 0xE;
+		break;
+	}
+	case 64:
+	{
+		DLC_code = 0xF;
+		break;
+	}
+	}
 
-	return rx_header;
+	return DLC_code;
 }
 
-
-/*
-FDCAN_TxHeaderTypeDef CAN_header_get(void)
+void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* array, uint32_t value)
 {
-	FDCAN_TxHeaderTypeDef tx_header;
-
-	tx_header.Identifier = 0x11223344;
-	tx_header.IdType = FDCAN_EXTENDED_ID;
-	tx_header.TxFrameType = FDCAN_DATA_FRAME;
-	tx_header.DataLength = FDCAN_DLC_BYTES_8;
-	tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-	tx_header.BitRateSwitch = FDCAN_BRS_OFF;
-	tx_header.FDFormat = FDCAN_CLASSIC_CAN;
-	tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-	tx_header.MessageMarker = 0;
-
-	return tx_header;
+	for (int i = 0; i < size_of_array; i++)
+	{
+		*(array + (sizeof(uint8_t) * i)) = (value >> ((size_of_array - i - 1) * INT_TO_ASCII_CONVERT_BITWISE_SHIFT)) & 0xF;
+		int_to_char(array + (sizeof(uint8_t) * i));
+	}
 }
 
-void CAN_test_transmit(FDCAN_HandleTypeDef *hfdcan)
+void int_to_char(uint8_t* variable_pointer)
 {
-	FDCAN_TxHeaderTypeDef test_header = CAN_header_get();
-	uint8_t test_data[8] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
-	HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, &test_header, test_data);
+	if (*variable_pointer <= 9)
+	{
+		*variable_pointer = *variable_pointer + 0x30;
+	}
+	else
+	{
+		*variable_pointer = *variable_pointer + 0x40 - 9;
+	}
 }
-*/
 
 void init_CAN_values(void)
 {
 	CAN_RX_queue_buffer_write_counter = 0;
 
-	for (int i = 0; i < sizeof(CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer); i++)			// инициализируем нулями массив очереди на отправку
+	for (int i = 0; i < sizeof(CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer); i++)			// инициализируем нулями массив очереди на отправку
 	{
-		init_int_array_by_zero(sizeof(CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[i]), CAN_RX_data_timestamp_struc_buffer.CAN_RX_data_buffer[i]);
+		init_int_array_by_zero(sizeof(CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer[i]), CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_data_buffer[i]);
 	}
 
-	init_int_array_by_zero(sizeof(CAN_RX_data_timestamp_struc_buffer.CAN_RX_timestamp_buffer), (uint8_t*)CAN_RX_data_timestamp_struc_buffer.CAN_RX_timestamp_buffer);
+	init_int_array_by_zero(sizeof(CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_timestamp_buffer), (uint8_t*)CAN_RX_header_data_timestamp_struct_buffer.CAN_RX_timestamp_buffer);
 }
 
 CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set)
@@ -395,7 +527,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
 		id_array[i] = convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.id_byte_number + i]);
 	}
 	uint32_t identifier = unite_digits_sequence(sizeof(id_array), id_array, ASCII_TO_INT_CONVERT_BITWISE_SHIFT);
-	uint32_t data_lenght = CAN_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));
+	uint32_t data_lenght = CAN_TX_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));
 	uint8_t can_tx_data_buffer[convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number])];
 
 	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)
@@ -426,89 +558,179 @@ uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert)
 
 	return int_value;
 }
+uint32_t CAN_RX_message_data_lenght_define(uint32_t data_lenght_code)
+{
+	uint32_t lenght_bytes;
 
-uint32_t CAN_message_DLC_bytes_define(uint32_t data_lenght_bytes)
+	switch (data_lenght_code)
+	{
+	case FDCAN_DLC_BYTES_0:
+	{
+		lenght_bytes = 0;
+		break;
+	}
+	case FDCAN_DLC_BYTES_1:
+	{
+		lenght_bytes = 1;
+		break;
+	}
+	case FDCAN_DLC_BYTES_2:
+	{
+		lenght_bytes = 2;
+		break;
+	}
+	case FDCAN_DLC_BYTES_3:
+	{
+		lenght_bytes = 3;
+		break;
+	}
+	case FDCAN_DLC_BYTES_4:
+	{
+		lenght_bytes = 4;
+		break;
+	}
+	case FDCAN_DLC_BYTES_5:
+	{
+		lenght_bytes = 5;
+		break;
+	}
+	case FDCAN_DLC_BYTES_6:
+	{
+		lenght_bytes = 6;
+		break;
+	}
+	case FDCAN_DLC_BYTES_7:
+	{
+		lenght_bytes = 7;
+		break;
+	}
+	case FDCAN_DLC_BYTES_8:
+	{
+		lenght_bytes = 8;
+		break;
+	}
+	case FDCAN_DLC_BYTES_12:
+	{
+		lenght_bytes = 12;
+		break;
+	}
+	case FDCAN_DLC_BYTES_16:
+	{
+		lenght_bytes = 16;
+		break;
+	}
+	case FDCAN_DLC_BYTES_20:
+	{
+		lenght_bytes = 20;
+		break;
+	}
+	case FDCAN_DLC_BYTES_24:
+	{
+		lenght_bytes = 24;
+		break;
+	}
+	case FDCAN_DLC_BYTES_32:
+	{
+		lenght_bytes = 32;
+		break;
+	}
+	case FDCAN_DLC_BYTES_48:
+	{
+		lenght_bytes = 48;
+		break;
+	}
+	case FDCAN_DLC_BYTES_64:
+	{
+		lenght_bytes = 64;
+		break;
+	}
+	}
+
+	return lenght_bytes;
+}
+
+uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes)
 {
 	uint32_t DLC_bytes;
 
 	switch (data_lenght_bytes)
 	{
-	case 0:
+	case 0x0:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_0;
 		break;
 	}
-	case 1:
+	case 0x1:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_1;
 		break;
 	}
-	case 2:
+	case 0x2:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_2;
 		break;
 	}
-	case 3:
+	case 0x3:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_3;
 		break;
 	}
-	case 4:
+	case 0x4:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_4;
 		break;
 	}
-	case 5:
+	case 0x5:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_5;
 		break;
 	}
-	case 6:
+	case 0x6:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_6;
 		break;
 	}
-	case 7:
+	case 0x7:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_7;
 		break;
 	}
-	case 8:
+	case 0x8:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_8;
 		break;
 	}
-	case 12:
+	case 0x9:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_12;
 		break;
 	}
-	case 16:
+	case 0xA:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_16;
 		break;
 	}
-	case 20:
+	case 0xB:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_20;
 		break;
 	}
-	case 24:
+	case 0xC:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_24;
 		break;
 	}
-	case 32:
+	case 0xD:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_32;
 		break;
 	}
-	case 48:
+	case 0xE:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_48;
 		break;
 	}
-	case 64:
+	case 0xF:
 	{
 		DLC_bytes = FDCAN_DLC_BYTES_64;
 		break;

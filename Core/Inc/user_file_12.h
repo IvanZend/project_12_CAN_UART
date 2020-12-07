@@ -112,6 +112,7 @@
 #define EXTENDED_CAN_MESSAGE_DATA_LENGHT_BYTE 	9
 #define EXTENDED_CAN_MESSAGE_DATA_START_BYTE 	10
 #define ASCII_TO_INT_CONVERT_BITWISE_SHIFT		4
+#define INT_TO_ASCII_CONVERT_BITWISE_SHIFT		4
 #define UART_RX_MESSAGE_SIZE					1
 #define UART_TX_MESSAGE_SIZE					1
 #define RX_QUEUE_BUFFER_SIZE					4
@@ -119,6 +120,10 @@
 #define UART_STRING_MAX_SIZE					64
 #define CAN_RX_MESSAGE_SIZE						20
 #define CAN_RX_BUFFER_SIZE						4
+#define STANDARD_CAN_ID_LENGHT					3
+#define EXTENDED_CAN_ID_LENGHT					8
+#define CAN_DATA_LENGHT_BYTE_SIZE				1
+#define CAN_TIMESTAMP_SIZE						4
 
 
 typedef enum
@@ -151,12 +156,13 @@ typedef struct
 
 typedef struct
 {
+	FDCAN_RxHeaderTypeDef CAN_RX_header_buffer[CAN_RX_BUFFER_SIZE];
 	uint8_t CAN_RX_data_buffer[CAN_RX_BUFFER_SIZE][CAN_RX_MESSAGE_SIZE];
 	uint16_t CAN_RX_timestamp_buffer[CAN_RX_BUFFER_SIZE];
 } CAN_DataTimestampBuffer_StructTypeDef;
 
 UARTErrorCode_EnumTypeDef uart_error_state;
-CAN_DataTimestampBuffer_StructTypeDef CAN_RX_data_timestamp_struc_buffer;
+CAN_DataTimestampBuffer_StructTypeDef CAN_RX_header_data_timestamp_struct_buffer;
 uint8_t UART_buffer_counter;
 uint8_t UART_rx_buffer[UART_RX_MESSAGE_SIZE];
 uint8_t UART_tx_buffer[UART_TX_MESSAGE_SIZE];
@@ -178,7 +184,10 @@ void send_end_char_to_UART(void);
 void complete_and_send_string_to_UART(uint16_t size_of_string, char* string_to_send);
 void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send);
 void CAN_IT_handler(void);
-void parse_CAN_message(uint8_t* CAN_data_buffer_to_parse, uint16_t CAN_timestamp_buffer_to_parse);
+void parse_CAN_message(CAN_DataTimestampBuffer_StructTypeDef CAN_message_struct_to_parse, uint8_t current_buffer_element_counter);
+uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert);
+void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* array, uint32_t value);
+void int_to_char(uint8_t* variable_pointer);
 FDCAN_RxHeaderTypeDef CAN_rx_header_get(void);
 //_Bool compare_int_and_char_arrays(uint8_t* int_array_pointer, char* char_array_pointer);
 void add_char_message_to_TX_queue_buffer(uint16_t message_to_transmit_size, char* message_to_transmit_pointer);
@@ -191,7 +200,8 @@ void init_CAN_values(void);
 CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set);
 void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef CAN_frame_parameters_set);
 uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert);
-uint32_t CAN_message_DLC_bytes_define(uint32_t data_lenght_bytes);
+uint32_t CAN_RX_message_data_lenght_define(uint32_t data_lenght_code);
+uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes);
 void CAN_transmit_message(uint32_t id_type, uint32_t identifier, uint32_t data_lenght, uint8_t* tx_data);
 uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift);
 
