@@ -8,19 +8,26 @@
 #ifndef INC_MSG_QUEUE_H_
 #define INC_MSG_QUEUE_H_
 
+#define UART_TX_MESSAGE_PRIORITY_0_MAX			0
+#define UART_TX_MESSAGE_PRIORITY_1				1
+#define UART_TX_MESSAGE_PRIORITY_2				2
+#define UART_TX_MESSAGE_PRIORITY_3				3
+#define UART_TX_MESSAGE_PRIORITY_4_MIN			4
+#define UART_TX_QUEUE_BUFFER_SIZE				8
+
 struct MSG
 {
-	char Buffer[32];
+	int Buffer[32];
 	int Priority = 0;
 	int Size = 0;
 };
 
 struct Queue
 {
-	enum {UART_TX_QUEUE_BUFFER_SIZE = 8 };
+	//enum {UART_TX_QUEUE_BUFFER_SIZE = 8 };
 
-	bool Pop(char* data, int size);
-	bool Push(char* data, int size, int priority);
+	bool Pop(int* data, int size);
+	bool Push(int* data, int size, int priority);
 	bool IsFull() const
 	{
 		return (Count == UART_TX_QUEUE_BUFFER_SIZE);

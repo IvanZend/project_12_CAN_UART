@@ -6,7 +6,7 @@
  */
 #include <msg_queue.h>
 
-bool Queue::Pop(char* data, int size)
+bool Queue::Pop(int* data, int size)
 {
 	if (size < Msgs[GetIndex].Size)
 	{
@@ -29,7 +29,7 @@ bool Queue::Pop(char* data, int size)
 	return true;
 }
 
-bool Queue::Push(char* data, int size, int priority)
+bool Queue::Push(int* data, int size, int priority)
 {
 	if (IsFull())
 		return false;

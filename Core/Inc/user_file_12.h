@@ -117,7 +117,7 @@
 #define UART_RX_MESSAGE_SIZE					1
 #define UART_TX_MESSAGE_SIZE					1
 #define UART_RX_QUEUE_BUFFER_SIZE				4
-#define UART_TX_QUEUE_BUFFER_SIZE				24
+//#define UART_TX_QUEUE_BUFFER_SIZE				24
 #define CAN_TX_QUEUE_BUFFER_SIZE				24
 #define UART_STRING_MAX_SIZE					64
 #define CAN_RX_MESSAGE_SIZE						20
@@ -159,11 +159,7 @@
 #define CAN_1000_KBIT_SJW						3
 #define CAN_1000_KBIT_SEG1						13
 #define CAN_1000_KBIT_SEG2						2
-#define UART_TX_MESSAGE_PRIORITY_0_MAX			0
-#define UART_TX_MESSAGE_PRIORITY_1				1
-#define UART_TX_MESSAGE_PRIORITY_2				2
-#define UART_TX_MESSAGE_PRIORITY_3				3
-#define UART_TX_MESSAGE_PRIORITY_4_MIN			4
+
 #define TRUE									1
 #define FALSE									0
 #define NON_STAND_CAN_PRESCALER_SIZE			3
@@ -178,6 +174,14 @@
 #define CAN_MASK_LENGHT_EXTENDED				8
 #define CAN_CODE_LENGHT_STANDARD				3
 #define CAN_CODE_LENGHT_EXTENDED				8
+
+
+#define UART_TX_MESSAGE_PRIORITY_0_MAX			0
+#define UART_TX_MESSAGE_PRIORITY_1				1
+#define UART_TX_MESSAGE_PRIORITY_2				2
+#define UART_TX_MESSAGE_PRIORITY_3				3
+#define UART_TX_MESSAGE_PRIORITY_4_MIN			4
+#define UART_TX_QUEUE_BUFFER_SIZE				8
 
 
 typedef enum
@@ -270,7 +274,7 @@ FDCAN_FilterTypeDef filter_config;
 
 void init_UART_values(void);
 void UART_error_handler(UARTErrorCode_EnumTypeDef error_type);
-//void UART_IT_handler(void);
+void UART_IT_handler(void);
 void add_byte_to_string(uint8_t byte_to_write);
 void UART_RX_queue_polling(void);
 void CAN_RX_queue_polling(void);
@@ -303,8 +307,8 @@ void CAN_transmit_message(uint32_t id_type, uint32_t frame_type, uint32_t identi
 uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift);
 void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode);
 void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32_t SJW, uint32_t seg1, uint32_t seg2);
-void add_message_to_UART_TX_queue(uint8_t message_size, uint8_t* message_data_pointer, uint8_t message_priority);
-void send_messages_from_UART_TX_queue(void);
+extern void add_message_to_UART_TX_queue(int message_size, int* message_data_pointer, int message_priority);
+extern void send_messages_from_UART_TX_queue(void);
 void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8_t *tx_data_pointer);
 void send_messages_from_CAN_TX_queue(void);
 uint8_t count_string_lenght(char* ch_string);
