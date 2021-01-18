@@ -307,7 +307,7 @@ void CAN_transmit_message(uint32_t id_type, uint32_t frame_type, uint32_t identi
 uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift);
 void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode);
 void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32_t SJW, uint32_t seg1, uint32_t seg2);
-extern void add_message_to_UART_TX_queue(int message_size, int* message_data_pointer, int message_priority);
+extern void add_message_to_UART_TX_queue(uint8_t* message_data_pointer, uint8_t message_size, uint8_t message_priority);
 extern void send_messages_from_UART_TX_queue(void);
 void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8_t *tx_data_pointer);
 void send_messages_from_CAN_TX_queue(void);

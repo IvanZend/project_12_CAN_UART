@@ -23,7 +23,7 @@
 #include "stm32g4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "cpp_ext.hpp"
+//#include "cpp_ext.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

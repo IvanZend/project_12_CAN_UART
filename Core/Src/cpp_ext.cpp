@@ -6,6 +6,9 @@
  */
 
 #include <msg_queue.h>
+#include <stdint.h>
+
+//#include "cpp_ext.hpp"
 /*
 Queue UARTQueueRX, UARTQueueTX;
 
@@ -22,45 +25,54 @@ extern "C"
 }
 */
 
+
+extern "C" void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send);
+
 Queue UARTQueueTX;
 
 extern "C"
 {
-void add_message_to_UART_TX_queue(int message_size, int* message_data_pointer, int message_priority)
-{
-	UARTQueueTX.Push(message_data_pointer, message_size, message_priority);
-}
-
-void send_messages_from_UART_TX_queue(void)
-{
-	if (UARTQueueTX.GetIndex != UARTQueueTX.PutIndex)
+	void add_message_to_UART_TX_queue(uint8_t* message_data_pointer, uint8_t message_size, uint8_t message_priority)
 	{
-		for (int ii = UART_TX_MESSAGE_PRIORITY_0_MAX; ii <= UART_TX_MESSAGE_PRIORITY_4_MIN; ii++)
+		uint8_t tmp_buff[40];
+		for (int i = 0; i < (int)sizeof(tmp_buff); i++)
 		{
-			for (int i = UARTQueueTX.GetIndex; i != UARTQueueTX.PutIndex; i++)
+			tmp_buff[i] = message_data_pointer[i];
+		}
+
+		UARTQueueTX.Push(message_data_pointer, message_size, message_priority);
+	}
+
+	void send_messages_from_UART_TX_queue(void)
+	{
+		if (!UARTQueueTX.IsEmpty())
+		{
+			for (int ii = UART_TX_MESSAGE_PRIORITY_0_MAX; ii <= UART_TX_MESSAGE_PRIORITY_4_MIN; ii++)
 			{
-				if (i == UART_TX_QUEUE_BUFFER_SIZE)
+				for (int i = UARTQueueTX.Count; i != UARTQueueTX.PutIndex; i++)
 				{
-				i = 0;
-				}
-				if(UARTQueueTX.Msgs[i].Priority == ii)
-				{
-					int tmp_arr_3[8];
-					UARTQueueTX.Pop(tmp_arr_3, sizeof(tmp_arr_3));
-					//send_message_to_UART(sizeof(tmp_arr_3), tmp_arr_3);
-					/*
-					send_message_to_UART(UART_TX_queue_buffer[i].message_size, UART_TX_queue_buffer[i].message_data);
-					UART_TX_queue_buffer[i].message_size = 0;
-					*/
+					if (i == UART_TX_QUEUE_BUFFER_SIZE)
+					{
+					i = 0;
+					}
+					if(UARTQueueTX.Msgs[i].Priority == ii)
+					{
+						uint8_t tmp_arr_3[8];
+						UARTQueueTX.Pop(tmp_arr_3, sizeof(tmp_arr_3));
+
+						send_message_to_UART(sizeof(tmp_arr_3), (uint8_t*)tmp_arr_3);
+
+						UARTQueueTX.Msgs[i].Size = 0;
+
+					}
 				}
 			}
+			UARTQueueTX.GetIndex = UARTQueueTX.PutIndex;
 		}
-		UARTQueueTX.GetIndex = UARTQueueTX.PutIndex;
+		if (UARTQueueTX.GetIndex == UART_TX_QUEUE_BUFFER_SIZE)
+		{
+			UARTQueueTX.GetIndex = 0;
+		}
 	}
-	if (UARTQueueTX.GetIndex == UART_TX_QUEUE_BUFFER_SIZE)
-	{
-		UARTQueueTX.GetIndex = 0;
-	}
-}
 }
 

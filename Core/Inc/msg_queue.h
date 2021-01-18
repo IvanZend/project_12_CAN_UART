@@ -5,6 +5,8 @@
  *      Author: IvanB
  */
 
+#include <cstdint>
+
 #ifndef INC_MSG_QUEUE_H_
 #define INC_MSG_QUEUE_H_
 
@@ -17,17 +19,17 @@
 
 struct MSG
 {
-	int Buffer[32];
-	int Priority = 0;
-	int Size = 0;
+	uint8_t Buffer[32];
+	uint8_t Priority = 0;
+	uint8_t Size = 0;
 };
 
 struct Queue
 {
 	//enum {UART_TX_QUEUE_BUFFER_SIZE = 8 };
 
-	bool Pop(int* data, int size);
-	bool Push(int* data, int size, int priority);
+	bool Pop(uint8_t* data, uint8_t size);
+	bool Push(uint8_t* data, uint8_t size, uint8_t priority);
 	bool IsFull() const
 	{
 		return (Count == UART_TX_QUEUE_BUFFER_SIZE);

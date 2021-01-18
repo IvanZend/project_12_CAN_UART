@@ -292,7 +292,7 @@ void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority
 {
 	uint8_t tmp_arr_1[1];
 	tmp_arr_1[0] = char_code_to_send;
-	add_message_to_UART_TX_queue(sizeof(tmp_arr_1), (int*)tmp_arr_1, message_priority);
+	add_message_to_UART_TX_queue(tmp_arr_1, sizeof(tmp_arr_1), message_priority);
 }
 
 void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t message_priority)
@@ -303,7 +303,7 @@ void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t m
 		tmp_arr_1[i] = string_to_send[i];
 	}
 	tmp_arr_1[sizeof(tmp_arr_1) - 1] = CARRIAGE_RETURN_CHAR;
-	add_message_to_UART_TX_queue(sizeof(tmp_arr_1), (int*)tmp_arr_1, message_priority);
+	add_message_to_UART_TX_queue(tmp_arr_1, sizeof(tmp_arr_1), message_priority);
 }
 
 void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send)
@@ -417,7 +417,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 		}
 	}
 	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;
-	add_message_to_UART_TX_queue(sizeof(CAN_to_UART_message_buffer), (int*)CAN_to_UART_message_buffer, UART_TX_MESSAGE_PRIORITY_3);
+	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), UART_TX_MESSAGE_PRIORITY_3);
 }
 
 uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
@@ -871,7 +871,7 @@ void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32
 }
 
 /*
-void add_message_to_UART_TX_queue(uint8_t message_size, uint8_t* message_data_pointer, uint8_t message_priority)
+void add_message_to_UART_TX_queue(uint8_t* message_data_pointer, uint8_t message_size, uint8_t message_priority)
 {
 	if (UART_TX_queue_buffer[UART_TX_put_index].message_size != 0)
 	{

@@ -10,8 +10,8 @@
 
 
 //extern void UART_IT_handler(void);
-void add_message_to_UART_TX_queue(int message_size, int* message_data_pointer, int message_priority);
+void add_message_to_UART_TX_queue(uint8_t* message_data_pointer, uint8_t message_size, uint8_t message_priority);
 void send_messages_from_UART_TX_queue(void);
-//void send_message_to_UART(int message_size, int* message_to_send);
+//extern void send_message_to_UART(uint8_t message_size, uint8_t* message_to_send);
 
 #endif /* SRC_CPP_EXT_HPP_ */
