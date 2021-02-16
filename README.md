@@ -1,2 +1,2 @@
-# project_12_FLASH_UART
- work with FLASH memory, using UART
+# project_12_CAN_UART
+CAN <-> UART adaper
