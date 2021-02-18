@@ -47,31 +47,17 @@ extern "C"
 	{
 		if (!UARTQueueTX.IsEmpty())
 		{
-			for (int ii = UART_TX_MESSAGE_PRIORITY_0_MAX; ii <= UART_TX_MESSAGE_PRIORITY_4_MIN; ii++)
+			for (int i = UARTQueueTX.GetIndex; i != UARTQueueTX.PutIndex; i++)
 			{
-				for (int i = UARTQueueTX.Count; i != UARTQueueTX.PutIndex; i++)
+				if (i == UART_TX_QUEUE_BUFFER_SIZE)
 				{
-					if (i == UART_TX_QUEUE_BUFFER_SIZE)
-					{
 					i = 0;
-					}
-					if(UARTQueueTX.Msgs[i].Priority == ii)
-					{
-						uint8_t tmp_arr_3[8];
-						UARTQueueTX.Pop(tmp_arr_3, sizeof(tmp_arr_3));
-
-						send_message_to_UART(sizeof(tmp_arr_3), (uint8_t*)tmp_arr_3);
-
-						UARTQueueTX.Msgs[i].Size = 0;
-
-					}
 				}
+				uint8_t tmp_arr_3[UARTQueueTX.Msgs[i].Size];
+				UARTQueueTX.Pop(tmp_arr_3, sizeof(tmp_arr_3));
+				send_message_to_UART(sizeof(tmp_arr_3), (uint8_t*)tmp_arr_3);
+				UARTQueueTX.Msgs[i].Size = 0;
 			}
-			UARTQueueTX.GetIndex = UARTQueueTX.PutIndex;
-		}
-		if (UARTQueueTX.GetIndex == UART_TX_QUEUE_BUFFER_SIZE)
-		{
-			UARTQueueTX.GetIndex = 0;
 		}
 	}
 }

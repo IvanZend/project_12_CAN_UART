@@ -15,11 +15,12 @@
 #define UART_TX_MESSAGE_PRIORITY_2				2
 #define UART_TX_MESSAGE_PRIORITY_3				3
 #define UART_TX_MESSAGE_PRIORITY_4_MIN			4
-#define UART_TX_QUEUE_BUFFER_SIZE				8
+#define UART_TX_STRING_MAX_SIZE					64
+#define UART_TX_QUEUE_BUFFER_SIZE				24
 
 struct MSG
 {
-	uint8_t Buffer[32];
+	uint8_t Buffer[UART_TX_STRING_MAX_SIZE];
 	uint8_t Priority = 0;
 	uint8_t Size = 0;
 };

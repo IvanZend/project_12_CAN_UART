@@ -270,6 +270,8 @@ uint8_t CAN_TX_put_index;
 uint8_t CAN_TX_get_index;
 _Bool timestamp_enabled;
 FDCAN_FilterTypeDef filter_config;
+_Bool CAN_TX_success_flag;
+_Bool CAN_RX_success_flag;
 
 
 void init_UART_values(void);
@@ -315,5 +317,8 @@ uint8_t count_string_lenght(char* ch_string);
 void init_CAN_filter(void);
 void update_CAN_acceptance_mask(uint8_t string_size, char* string_pointer);
 void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer);
+char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status);
+char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status);
+char convert_int_value_to_ascii_char(uint8_t int_value);
 
 #endif /* INC_USER_FILE_12_H_ */

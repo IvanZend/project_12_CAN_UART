@@ -154,7 +154,7 @@ void parse_UART_message(char* UART_buffer_to_parse)
 		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_16), MESSAGE_COMMAND_LIST_STRING_16, UART_TX_MESSAGE_PRIORITY_3);
 		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_17), MESSAGE_COMMAND_LIST_STRING_17, UART_TX_MESSAGE_PRIORITY_3);
 		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_18), MESSAGE_COMMAND_LIST_STRING_18, UART_TX_MESSAGE_PRIORITY_0_MAX);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_19), MESSAGE_COMMAND_LIST_STRING_19, UART_TX_MESSAGE_PRIORITY_1);
+		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_19), MESSAGE_COMMAND_LIST_STRING_19, UART_TX_MESSAGE_PRIORITY_3);
 	}
 	else if (!strcmp(UART_buffer_to_parse, "O"))
 	{
@@ -230,10 +230,11 @@ void parse_UART_message(char* UART_buffer_to_parse)
 	{
 		char error_code_tmp[3];
 		init_char_array_by_zero(sizeof(error_code_tmp), error_code_tmp);
-		if (hfdcan1.ErrorCode != HAL_FDCAN_ERROR_NONE)
-		{
-			error_code_tmp[1] = '1';
-		}
+		FDCAN_ProtocolStatusTypeDef protocol_status;
+		HAL_FDCAN_GetProtocolStatus(&hfdcan1, &protocol_status);
+		error_code_tmp[0] = status_flag_byte_1(protocol_status);
+		error_code_tmp[1] = status_flag_byte_0(protocol_status);
+
 		put_string_to_UART(sizeof(error_code_tmp), error_code_tmp, UART_TX_MESSAGE_PRIORITY_3);
 	}
 	else if (!strcmp(UART_buffer_to_parse, "V"))
@@ -286,6 +287,10 @@ void parse_UART_message(char* UART_buffer_to_parse)
 		update_CAN_acceptance_code(count_string_lenght(&UART_buffer_to_parse[1]), &UART_buffer_to_parse[1]);
 		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
 	}
+	else if (UART_buffer_to_parse[0] == BEL_CHAR)
+	{
+
+	}
 }
 
 void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority)
@@ -316,8 +321,17 @@ void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send)
 
 void CAN_IT_handler(void)
 {
-	HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &CAN_RX_queue_buffer[CAN_RX_put_index].CAN_RX_header_buffer, \
+	HAL_StatusTypeDef rx_flag = HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &CAN_RX_queue_buffer[CAN_RX_put_index].CAN_RX_header_buffer, \
 							CAN_RX_queue_buffer[CAN_RX_put_index].CAN_RX_data_buffer);
+
+	if (CAN_RX_success_flag == 0)
+	{
+		if (rx_flag == HAL_OK)
+		{
+			CAN_RX_success_flag = 1;
+		}
+	}
+
 	if (timestamp_enabled)
 	{
 		CAN_RX_queue_buffer[CAN_RX_put_index].CAN_RX_timestamp_buffer = HAL_FDCAN_GetTimestampCounter(&hfdcan1);
@@ -545,6 +559,8 @@ void init_CAN_values(void)
 	CAN_RX_get_index = 0;
 	CAN_TX_put_index = 0;
 	CAN_TX_get_index = 0;
+	CAN_TX_success_flag = 0;
+	CAN_RX_success_flag = 0;
 }
 
 CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set, uint32_t frame_type_set)
@@ -938,7 +954,14 @@ void send_messages_from_CAN_TX_queue(void)
 {
 	if (CAN_TX_get_index != CAN_TX_put_index)
 	{
-		HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &CAN_TX_queue_buffer[CAN_TX_get_index].message_header, &CAN_TX_queue_buffer[CAN_TX_get_index].message_data[0]);
+		HAL_StatusTypeDef tx_flag = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &CAN_TX_queue_buffer[CAN_TX_get_index].message_header, &CAN_TX_queue_buffer[CAN_TX_get_index].message_data[0]);
+		if (CAN_TX_success_flag == 0)
+		{
+			if (tx_flag == HAL_OK)
+			{
+				CAN_TX_success_flag = 1;
+			}
+		}
 		CAN_TX_get_index++;
 	}
 	if (CAN_TX_get_index >= CAN_TX_QUEUE_BUFFER_SIZE)
@@ -1014,4 +1037,34 @@ void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer)
 		break;
 	}
 	}
+}
+
+char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status)
+{
+	uint8_t value_tmp = protocol_status.LastErrorCode;
+	value_tmp = value_tmp | (CAN_TX_success_flag << 3);
+	return convert_int_value_to_ascii_char(value_tmp);
+}
+
+char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status)
+{
+	uint8_t value_tmp = CAN_RX_success_flag;
+	value_tmp = value_tmp | (protocol_status.ErrorPassive << 1);
+	value_tmp = value_tmp | (protocol_status.Warning << 2);
+	value_tmp = value_tmp | (protocol_status.BusOff << 3);
+	return convert_int_value_to_ascii_char(value_tmp);
+}
+
+char convert_int_value_to_ascii_char(uint8_t int_value)
+{
+	char value_return = 0;
+	if (int_value < 10)
+	{
+		value_return = int_value + '0';
+	}
+	else
+	{
+		value_return = int_value + 'A' - 10;
+	}
+	return value_return;
 }
