@@ -35,15 +35,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
  15 .debug_ranges 000012a8  00000000  00000000  0003bad8  2**3
                   CONTENTS, READONLY, DEBUGGING
- 16 .debug_macro  000202b2  00000000  00000000  0003cd80  2**0
+ 16 .debug_macro  000202a6  00000000  00000000  0003cd80  2**0
                   CONTENTS, READONLY, DEBUGGING
- 17 .debug_line   0000f054  00000000  00000000  0005d032  2**0
+ 17 .debug_line   0000f054  00000000  00000000  0005d026  2**0
                   CONTENTS, READONLY, DEBUGGING
- 18 .debug_str    000cea87  00000000  00000000  0006c086  2**0
+ 18 .debug_str    000cea62  00000000  00000000  0006c07a  2**0
                   CONTENTS, READONLY, DEBUGGING
- 19 .comment      0000007b  00000000  00000000  0013ab0d  2**0
+ 19 .comment      0000007b  00000000  00000000  0013aadc  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00005598  00000000  00000000  0013ab88  2**2
+ 20 .debug_frame  00005598  00000000  00000000  0013ab58  2**2
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -1442,10 +1442,10 @@ void Error_Handler(void)
  8000b96:	4770      	bx	lr
 
 08000b98 <_ZN5Queue3PopEPhh>:
- *      Author: IvanB
- */
-#include <msg_queue.h>
 
+/*
+ * Извлечь сообщение из общей очереди
+ */
 bool Queue::Pop(uint8_t* data, uint8_t size)
 {
  8000b98:	b580      	push	{r7, lr}
@@ -1559,6 +1559,9 @@ bool Queue::Pop(uint8_t* data, uint8_t size)
 
 08000c56 <_ZN5Queue4PushEPhhh>:
 
+/*
+ * Добавить сообщение в очередь на отправку
+ */
 bool Queue::Push(uint8_t* data, uint8_t size, uint8_t priority)
 {
  8000c56:	b580      	push	{r7, lr}
@@ -2425,24 +2428,24 @@ void add_byte_to_string(uint8_t byte_to_write)
  80010a4:	4413      	add	r3, r2
  80010a6:	4602      	mov	r2, r0
  80010a8:	701a      	strb	r2, [r3, #0]
-		UART_RX_put_index++;												// инкрементируем счётчик элемента буфера-очереди
+		UART_RX_put_index++;																	// инкрементируем счётчик элемента буфера-очереди
  80010aa:	4b17      	ldr	r3, [pc, #92]	; (8001108 <add_byte_to_string+0x94>)
  80010ac:	781b      	ldrb	r3, [r3, #0]
  80010ae:	3301      	adds	r3, #1
  80010b0:	b2da      	uxtb	r2, r3
  80010b2:	4b15      	ldr	r3, [pc, #84]	; (8001108 <add_byte_to_string+0x94>)
  80010b4:	701a      	strb	r2, [r3, #0]
-		UART_RX_string_buffer_counter = 0;													// обнуляем счётчик элемента в строке-буфере
+		UART_RX_string_buffer_counter = 0;														// обнуляем счётчик элемента в строке-буфере
  80010b6:	4b13      	ldr	r3, [pc, #76]	; (8001104 <add_byte_to_string+0x90>)
  80010b8:	2200      	movs	r2, #0
  80010ba:	701a      	strb	r2, [r3, #0]
-		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)						// если превысили максимальное количество элементов в буфере-очереди
+		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)										// если превысили максимальное количество элементов в буфере-очереди
  80010bc:	4b12      	ldr	r3, [pc, #72]	; (8001108 <add_byte_to_string+0x94>)
  80010be:	781b      	ldrb	r3, [r3, #0]
  80010c0:	2b03      	cmp	r3, #3
  80010c2:	d918      	bls.n	80010f6 <add_byte_to_string+0x82>
 		{
-			UART_RX_put_index = 0;											// обнуляем счётчик элемента буфера-очереди
+			UART_RX_put_index = 0;																// обнуляем счётчик элемента буфера-очереди
  80010c4:	4b10      	ldr	r3, [pc, #64]	; (8001108 <add_byte_to_string+0x94>)
  80010c6:	2200      	movs	r2, #0
  80010c8:	701a      	strb	r2, [r3, #0]
@@ -2489,7 +2492,9 @@ void add_byte_to_string(uint8_t byte_to_write)
 
 08001110 <UART_RX_queue_polling>:
 
-// парсим сообщения из буфера-очереди
+/*
+ * парсим сообщения из буфера-очереди
+ */
 void UART_RX_queue_polling(void)
 {
  8001110:	b5b0      	push	{r4, r5, r7, lr}
@@ -2626,13 +2631,16 @@ void UART_RX_queue_polling(void)
 
 0800120c <parse_UART_message>:
 
+/*
+ * Парсим сообщение, полученное по UART
+ */
 void parse_UART_message(char* UART_buffer_to_parse)
 {
  800120c:	b5b0      	push	{r4, r5, r7, lr}
  800120e:	b0a2      	sub	sp, #136	; 0x88
  8001210:	af08      	add	r7, sp, #32
  8001212:	6078      	str	r0, [r7, #4]
-	if (!strcmp(UART_buffer_to_parse, "return_test"))
+	if (!strcmp(UART_buffer_to_parse, "return_test"))		// тестовая строка, в протоколе отсутствует
  8001214:	49bf      	ldr	r1, [pc, #764]	; (8001514 <parse_UART_message+0x308>)
  8001216:	6878      	ldr	r0, [r7, #4]
  8001218:	f7fe fffe 	bl	8000218 <strcmp>
@@ -3335,6 +3343,9 @@ void parse_UART_message(char* UART_buffer_to_parse)
 
 080017d8 <put_single_char_to_UART>:
 
+/*
+ * Добавляем один символ в очередь на отправку по UART
+ */
 void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority)
 {
  80017d8:	b580      	push	{r7, lr}
@@ -3362,6 +3373,7 @@ void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority
  8001800:	bd80      	pop	{r7, pc}
 
 08001802 <put_string_to_UART>:
+
 
 void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t message_priority)
 {
@@ -5672,6 +5684,9 @@ void init_CAN_filter(void)
 
 08002700 <update_CAN_acceptance_mask>:
 
+/*
+ * Меняем CAN-маску
+ */
 void update_CAN_acceptance_mask(uint8_t string_size, char* string_pointer)
 {
  8002700:	b580      	push	{r7, lr}

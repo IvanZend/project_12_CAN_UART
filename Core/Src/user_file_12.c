@@ -12,8 +12,8 @@ extern UART_HandleTypeDef huart2;
 extern FDCAN_HandleTypeDef hfdcan1;
 
 #define UART_TIMEOUT						100	// 0xfffffffful
-#define UART_COMMAND_BYTE					0
-#define UART_DATA_BYTE						1
+//#define UART_COMMAND_BYTE					0
+//#define UART_DATA_BYTE						1
 #define DIP_SWITCH_STATE_FLASH   	ADDR_FLASH_PAGE_4   /* Start @ of user Flash area */
 #define FLASH_USER_START_ADDR		ADDR_FLASH_PAGE_4
 #define FLASH_USER_END_ADDR     	(ADDR_FLASH_PAGE_63 + FLASH_PAGE_SIZE - 1)   /* End @ of user Flash area */
@@ -89,11 +89,11 @@ void add_byte_to_string(uint8_t byte_to_write)
 			//error
 		}
 		UART_RX_queue_buffer[UART_RX_put_index].message_size = UART_RX_string_buffer_counter;
-		UART_RX_put_index++;												// инкрементируем счётчик элемента буфера-очереди
-		UART_RX_string_buffer_counter = 0;													// обнуляем счётчик элемента в строке-буфере
-		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)						// если превысили максимальное количество элементов в буфере-очереди
+		UART_RX_put_index++;																	// инкрементируем счётчик элемента буфера-очереди
+		UART_RX_string_buffer_counter = 0;														// обнуляем счётчик элемента в строке-буфере
+		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)										// если превысили максимальное количество элементов в буфере-очереди
 		{
-			UART_RX_put_index = 0;											// обнуляем счётчик элемента буфера-очереди
+			UART_RX_put_index = 0;																// обнуляем счётчик элемента буфера-очереди
 		}
 	}
 	else
@@ -107,7 +107,9 @@ void add_byte_to_string(uint8_t byte_to_write)
 	}
 }
 
-// парсим сообщения из буфера-очереди
+/*
+ * парсим сообщения из буфера-очереди
+ */
 void UART_RX_queue_polling(void)
 {
 	if (UART_RX_get_index != UART_RX_put_index)												// если в буфере-очереди содержится хотя бы одно сообщение
@@ -128,9 +130,12 @@ void UART_RX_queue_polling(void)
 	}
 }
 
+/*
+ * Парсим сообщение, полученное по UART
+ */
 void parse_UART_message(char* UART_buffer_to_parse)
 {
-	if (!strcmp(UART_buffer_to_parse, "return_test"))
+	if (!strcmp(UART_buffer_to_parse, "return_test"))		// тестовая строка, в протоколе отсутствует
 	{
 		put_string_to_UART(sizeof(MESSAGE_TEST_VALUE), MESSAGE_TEST_VALUE, UART_TX_MESSAGE_PRIORITY_3);
 	}
@@ -293,12 +298,16 @@ void parse_UART_message(char* UART_buffer_to_parse)
 	}
 }
 
+/*
+ * Добавляем один символ в очередь на отправку по UART
+ */
 void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority)
 {
 	uint8_t tmp_arr_1[1];
 	tmp_arr_1[0] = char_code_to_send;
 	add_message_to_UART_TX_queue(tmp_arr_1, sizeof(tmp_arr_1), message_priority);
 }
+
 
 void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t message_priority)
 {
@@ -997,6 +1006,9 @@ void init_CAN_filter(void)
 	//HAL_FDCAN_ConfigExtendedIdMask(&hfdcan1, 0);
 }
 
+/*
+ * Меняем CAN-маску
+ */
 void update_CAN_acceptance_mask(uint8_t string_size, char* string_pointer)
 {
 	switch (string_size)

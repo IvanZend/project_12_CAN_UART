@@ -6,6 +6,9 @@
  */
 #include <msg_queue.h>
 
+/*
+ * Извлечь сообщение из общей очереди
+ */
 bool Queue::Pop(uint8_t* data, uint8_t size)
 {
 	if (size < Msgs[GetIndex].Size)
@@ -29,6 +32,9 @@ bool Queue::Pop(uint8_t* data, uint8_t size)
 	return true;
 }
 
+/*
+ * Добавить сообщение в очередь на отправку
+ */
 bool Queue::Push(uint8_t* data, uint8_t size, uint8_t priority)
 {
 	if (IsFull())
