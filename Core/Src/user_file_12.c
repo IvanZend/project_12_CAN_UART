@@ -11,14 +11,9 @@
 extern UART_HandleTypeDef huart2;
 extern FDCAN_HandleTypeDef hfdcan1;
 
-#define UART_TIMEOUT						100	// 0xfffffffful
-//#define UART_COMMAND_BYTE					0
-//#define UART_DATA_BYTE						1
-#define DIP_SWITCH_STATE_FLASH   	ADDR_FLASH_PAGE_4   /* Start @ of user Flash area */
-#define FLASH_USER_START_ADDR		ADDR_FLASH_PAGE_4
-#define FLASH_USER_END_ADDR     	(ADDR_FLASH_PAGE_63 + FLASH_PAGE_SIZE - 1)   /* End @ of user Flash area */
-
-// стартовая инициализация счётчиков и буферов UART
+/*
+ * стартовая инициализация счётчиков и буферов UART
+ */
 void init_UART_values(void)
 {
 	uart_error_state = UART_NO_ERROR;									// ошибка отсутствует
@@ -30,7 +25,9 @@ void init_UART_values(void)
 	timestamp_enabled = TRUE;
 }
 
-// обработчик ошибок UART
+/*
+ * обработчик ошибок UART
+ */
 void UART_error_handler(UARTErrorCode_EnumTypeDef error_type)
 {
 	switch (error_type)
@@ -62,71 +59,76 @@ void UART_error_handler(UARTErrorCode_EnumTypeDef error_type)
 	}
 	case UART_MAX_MESSAGE_LENGHT_EXCEEDED:
 	{
+
 		break;
 	}
 	}
 }
 
-
+/*
+ * Обработчик прерываний UART (вызывается при приёме сообщения)
+ */
 void UART_IT_handler(void)
 {
-	add_byte_to_string(UART_rx_buffer[0]);													// добавляем принятый байт в строку в очереди на парсинг
-	HAL_UART_Receive_IT(&huart2, (uint8_t *)UART_rx_buffer, UART_RX_MESSAGE_SIZE);			// взводим функцию для обработки прерывания
+	add_byte_to_string(UART_rx_buffer[0]);														// добавляем принятый байт в строку в очереди на парсинг
+	HAL_UART_Receive_IT(&huart2, (uint8_t *)UART_rx_buffer, UART_RX_MESSAGE_SIZE);				// взводим функцию для обработки прерывания
 }
 
-
-// добавляем принятый байт в строку-буфер
+/*
+ * Добавляем принятый байт в строку буфера
+ */
 void add_byte_to_string(uint8_t byte_to_write)
 {
-	if (UART_RX_string_buffer_counter >= UART_STRING_MAX_SIZE)								// если достигли максимальной длины строки
+	if (UART_RX_string_buffer_counter >= UART_STRING_MAX_SIZE)									// если достигли максимальной длины строки
 	{
-		UART_RX_string_buffer_counter = 0;													// обнуляем счётчик элемента в строке-буфере
-	}
-	if (byte_to_write == CHAR_CODE_UART_MESSAGE_END)										// если пришёл символ конца сообщения
-	{
-		if (UART_RX_queue_buffer[UART_RX_put_index].message_size != 0)
-		{
-			//error
-		}
-		UART_RX_queue_buffer[UART_RX_put_index].message_size = UART_RX_string_buffer_counter;
-		UART_RX_put_index++;																	// инкрементируем счётчик элемента буфера-очереди
 		UART_RX_string_buffer_counter = 0;														// обнуляем счётчик элемента в строке-буфере
-		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)										// если превысили максимальное количество элементов в буфере-очереди
+	}
+	if (byte_to_write == CHAR_CODE_UART_MESSAGE_END)											// если пришёл символ конца сообщения
+	{
+		if (UART_RX_queue_buffer[UART_RX_put_index].message_size != 0)							// если в данной строке буфера уже содерится сообщение
 		{
-			UART_RX_put_index = 0;																// обнуляем счётчик элемента буфера-очереди
+																								// вызываем обработку ошибки
+			// !!! error
+		}
+		UART_RX_queue_buffer[UART_RX_put_index].message_size = UART_RX_string_buffer_counter;	// записываем размер строки
+		UART_RX_put_index++;																	// инкрементируем счётчик строки в буфере строк
+		UART_RX_string_buffer_counter = 0;														// обнуляем счётчик символа в строке
+		if (UART_RX_put_index >= UART_RX_QUEUE_BUFFER_SIZE)										// если превысили максимальное количество строк в буфере
+		{
+			UART_RX_put_index = 0;																// обнуляем счётчик строк в буфере
 		}
 	}
-	else
+	else																						// если принятый символ - НЕ конец сообщения
 	{
-		if (UART_RX_string_buffer_counter >= (sizeof(UART_RX_queue_buffer)))
+		if (UART_RX_string_buffer_counter >= (sizeof(UART_RX_queue_buffer->message_data)))		// если превысили размер строки
 		{
-			UART_RX_string_buffer_counter = 0;
+			UART_RX_string_buffer_counter = 0;													// возвращаемся в начало строки
 		}
-		UART_RX_queue_buffer[UART_RX_put_index].message_data[UART_RX_string_buffer_counter] = byte_to_write;		// записываем символ в строку буфера-очереди на парсинг
-		UART_RX_string_buffer_counter++;
+		UART_RX_queue_buffer[UART_RX_put_index].message_data[UART_RX_string_buffer_counter] = byte_to_write;		// записываем символ в строку буфера
+		UART_RX_string_buffer_counter++;														// инкрементируем индекс символа в строке
 	}
 }
 
 /*
- * парсим сообщения из буфера-очереди
+ * парсим сообщения из буфера-очереди (вызывается по прерыванию с таймера)
  */
 void UART_RX_queue_polling(void)
 {
-	if (UART_RX_get_index != UART_RX_put_index)												// если в буфере-очереди содержится хотя бы одно сообщение
+	if (UART_RX_get_index != UART_RX_put_index)													// если в буфере-очереди содержится хотя бы одно сообщение
 	{
-		char tmp_ch_buf[UART_RX_queue_buffer[UART_RX_get_index].message_size + 1];			// буфер для формирования сообщения на парсинг. Размер буфера равен длине сообщения (без пустых символов)
-		for (int ii = 0; ii < sizeof(tmp_ch_buf); ii++)									    // переписываем всё сообщение во временный буфер
+		char tmp_ch_buf[UART_RX_queue_buffer[UART_RX_get_index].message_size + 1];				// буфер для формирования сообщения на парсинг. Размер буфера равен длине сообщения (без пустых символов)
+		for (int ii = 0; ii < sizeof(tmp_ch_buf); ii++)									   	 	// переписываем всё сообщение во временный буфер
 		{
 			tmp_ch_buf[ii] = UART_RX_queue_buffer[UART_RX_get_index].message_data[ii];
 		}
-		tmp_ch_buf[sizeof(tmp_ch_buf) - 1] = '\0';										// добавляем нуль-символ в конец сообщения
-		parse_UART_message(tmp_ch_buf);													// отправляем на парсинг текущее сообщение
-		UART_RX_queue_buffer[UART_RX_get_index].message_size = 0;
-		UART_RX_get_index++;
+		tmp_ch_buf[sizeof(tmp_ch_buf) - 1] = '\0';												// добавляем нуль-символ в конец сообщения
+		parse_UART_message(tmp_ch_buf);															// отправляем на парсинг текущее сообщение
+		UART_RX_queue_buffer[UART_RX_get_index].message_size = 0;								// обнуляем размер строки в буфере (считаем, что обнулённые строки пустые)
+		UART_RX_get_index++;																	// инкрементируем индекс взятия из буфера
 	}
-	if (UART_RX_get_index >= UART_RX_QUEUE_BUFFER_SIZE)
+	if (UART_RX_get_index == UART_RX_QUEUE_BUFFER_SIZE)											// если дошли до конца буфера
 	{
-		UART_RX_get_index = 0;
+		UART_RX_get_index = 0;																	// возвращаемся в начало буфера
 	}
 }
 
@@ -135,166 +137,161 @@ void UART_RX_queue_polling(void)
  */
 void parse_UART_message(char* UART_buffer_to_parse)
 {
-	if (!strcmp(UART_buffer_to_parse, "return_test"))		// тестовая строка, в протоколе отсутствует
+	if ((!strcmp(UART_buffer_to_parse, "H")) || (!strcmp(UART_buffer_to_parse, "h")) || (!strcmp(UART_buffer_to_parse, "?")))			// вернуть список поддерживаемых команд
 	{
-		put_string_to_UART(sizeof(MESSAGE_TEST_VALUE), MESSAGE_TEST_VALUE, UART_TX_MESSAGE_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_01), COMMAND_LIST_01, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_02), COMMAND_LIST_02, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_03), COMMAND_LIST_03, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_04), COMMAND_LIST_04, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_05), COMMAND_LIST_05, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_06), COMMAND_LIST_06, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_07), COMMAND_LIST_07, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_08), COMMAND_LIST_08, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_09), COMMAND_LIST_09, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_10), COMMAND_LIST_10, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_11), COMMAND_LIST_11, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_12), COMMAND_LIST_12, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_13), COMMAND_LIST_13, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_14), COMMAND_LIST_14, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_15), COMMAND_LIST_15, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_16), COMMAND_LIST_16, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_17), COMMAND_LIST_17, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_18), COMMAND_LIST_18, TX_PRIORITY_3);
+		put_string_to_UART(sizeof(COMMAND_LIST_19), COMMAND_LIST_19, TX_PRIORITY_3);
 	}
-	else if ((!strcmp(UART_buffer_to_parse, "H")) || (!strcmp(UART_buffer_to_parse, "h")) || (!strcmp(UART_buffer_to_parse, "?")))
+	else if (!strcmp(UART_buffer_to_parse, "O"))									// открыть канал в normal mode
 	{
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_01), MESSAGE_COMMAND_LIST_STRING_01, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_02), MESSAGE_COMMAND_LIST_STRING_02, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_03), MESSAGE_COMMAND_LIST_STRING_03, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_04), MESSAGE_COMMAND_LIST_STRING_04, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_05), MESSAGE_COMMAND_LIST_STRING_05, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_06), MESSAGE_COMMAND_LIST_STRING_06, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_07), MESSAGE_COMMAND_LIST_STRING_07, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_08), MESSAGE_COMMAND_LIST_STRING_08, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_09), MESSAGE_COMMAND_LIST_STRING_09, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_10), MESSAGE_COMMAND_LIST_STRING_10, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_11), MESSAGE_COMMAND_LIST_STRING_11, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_12), MESSAGE_COMMAND_LIST_STRING_12, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_13), MESSAGE_COMMAND_LIST_STRING_13, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_14), MESSAGE_COMMAND_LIST_STRING_14, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_15), MESSAGE_COMMAND_LIST_STRING_15, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_16), MESSAGE_COMMAND_LIST_STRING_16, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_17), MESSAGE_COMMAND_LIST_STRING_17, UART_TX_MESSAGE_PRIORITY_3);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_18), MESSAGE_COMMAND_LIST_STRING_18, UART_TX_MESSAGE_PRIORITY_0_MAX);
-		put_string_to_UART(sizeof(MESSAGE_COMMAND_LIST_STRING_19), MESSAGE_COMMAND_LIST_STRING_19, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_mode_change(&hfdcan1, FDCAN_MODE_NORMAL);								// изменить режим канала
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "O"))
+	else if (!strcmp(UART_buffer_to_parse, "L"))									// открыть канал в listen only mode
 	{
-		CAN_mode_change(&hfdcan1, FDCAN_MODE_NORMAL);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_mode_change(&hfdcan1, FDCAN_MODE_BUS_MONITORING);						// изменить режим канала
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "L"))
+	else if (!strcmp(UART_buffer_to_parse, "Y"))									// открыть канал в loopback mode
 	{
-		CAN_mode_change(&hfdcan1, FDCAN_MODE_BUS_MONITORING);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_mode_change(&hfdcan1, FDCAN_MODE_EXTERNAL_LOOPBACK);					// изменить режим канала
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "Y"))
+	else if (!strcmp(UART_buffer_to_parse, "C"))									// закрыть канал
 	{
-		CAN_mode_change(&hfdcan1, FDCAN_MODE_EXTERNAL_LOOPBACK);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		HAL_FDCAN_Stop(&hfdcan1);													// выключить CAN
+		put_single_char_to_UART(BEL_CHAR, TX_PRIORITY_3);							// возвращаем символ BEL
 	}
-	else if (!strcmp(UART_buffer_to_parse, "C"))
+	else if (!strcmp(UART_buffer_to_parse, "S1"))									// установить битрейт CAN 20k
 	{
-		HAL_FDCAN_Stop(&hfdcan1);
-		put_single_char_to_UART(BEL_CHAR, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_20_KBIT_PRESCALER, CAN_20_KBIT_SJW, CAN_20_KBIT_SEG1, CAN_20_KBIT_SEG2);			// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S1"))
+	else if (!strcmp(UART_buffer_to_parse, "S2"))									// установить битрейт CAN 50k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_20_KBIT_PRESCALER, CAN_20_KBIT_SJW, CAN_20_KBIT_SEG1, CAN_20_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_50_KBIT_PRESCALER, CAN_50_KBIT_SJW, CAN_50_KBIT_SEG1, CAN_50_KBIT_SEG2);			// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S2"))
+	else if (!strcmp(UART_buffer_to_parse, "S3"))									// установить битрейт CAN 100k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_50_KBIT_PRESCALER, CAN_50_KBIT_SJW, CAN_50_KBIT_SEG1, CAN_50_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_100_KBIT_PRESCALER, CAN_100_KBIT_SJW, CAN_100_KBIT_SEG1, CAN_100_KBIT_SEG2);		// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S3"))
+	else if (!strcmp(UART_buffer_to_parse, "S4"))									// установить битрейт CAN 125k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_100_KBIT_PRESCALER, CAN_100_KBIT_SJW, CAN_100_KBIT_SEG1, CAN_100_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_125_KBIT_PRESCALER, CAN_125_KBIT_SJW, CAN_125_KBIT_SEG1, CAN_125_KBIT_SEG2);		// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S4"))
+	else if (!strcmp(UART_buffer_to_parse, "S5"))									// установить битрейт CAN 250k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_125_KBIT_PRESCALER, CAN_125_KBIT_SJW, CAN_125_KBIT_SEG1, CAN_125_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_250_KBIT_PRESCALER, CAN_250_KBIT_SJW, CAN_250_KBIT_SEG1, CAN_250_KBIT_SEG2);		// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S5"))
+	else if (!strcmp(UART_buffer_to_parse, "S6"))									// установить битрейт CAN 500k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_250_KBIT_PRESCALER, CAN_250_KBIT_SJW, CAN_250_KBIT_SEG1, CAN_250_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_500_KBIT_PRESCALER, CAN_500_KBIT_SJW, CAN_500_KBIT_SEG1, CAN_500_KBIT_SEG2);		// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S6"))
+	else if (!strcmp(UART_buffer_to_parse, "S7"))									// установить битрейт CAN 800k
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_500_KBIT_PRESCALER, CAN_500_KBIT_SJW, CAN_500_KBIT_SEG1, CAN_500_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_800_KBIT_PRESCALER, CAN_800_KBIT_SJW, CAN_800_KBIT_SEG1, CAN_800_KBIT_SEG2);		// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S7"))
+	else if (!strcmp(UART_buffer_to_parse, "S8"))									// установить битрейт CAN 1m
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_800_KBIT_PRESCALER, CAN_800_KBIT_SJW, CAN_800_KBIT_SEG1, CAN_800_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		CAN_baudrate_change(&hfdcan1, CAN_1000_KBIT_PRESCALER, CAN_1000_KBIT_SJW, CAN_1000_KBIT_SEG1, CAN_1000_KBIT_SEG2);	// изменить битрейт
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "S8"))
+	else if (!strcmp(UART_buffer_to_parse, "Z1"))									// включить timestamp для принимаемых сообщений
 	{
-		CAN_baudrate_change(&hfdcan1, CAN_1000_KBIT_PRESCALER, CAN_1000_KBIT_SJW, CAN_1000_KBIT_SEG1, CAN_1000_KBIT_SEG2);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		timestamp_enabled = TRUE;													// включить timestamp
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "Z1"))
+	else if (!strcmp(UART_buffer_to_parse, "Z0"))									// выключить timestamp для принимаемых сообщений
 	{
-		timestamp_enabled = TRUE;
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		timestamp_enabled = FALSE;													// выключить timestamp
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (!strcmp(UART_buffer_to_parse, "Z0"))
+	else if (!strcmp(UART_buffer_to_parse, "F"))									// получить статус ошибок шины CAN
 	{
-		timestamp_enabled = FALSE;
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		char error_code_tmp[3];														// создаём временный буфер
+		init_char_array_by_zero(sizeof(error_code_tmp), error_code_tmp);			// инициализируем его нулями
+		FDCAN_ProtocolStatusTypeDef protocol_status;								// структура, содержащая статус CAN (тип определён в HAL)
+		HAL_FDCAN_GetProtocolStatus(&hfdcan1, &protocol_status);					// получаем статус CAN
+		error_code_tmp[0] = status_flag_byte_1(protocol_status);					// задаём старший байт статуса CAN
+		error_code_tmp[1] = status_flag_byte_0(protocol_status);					// задаём младший байт статуса CAN
+		put_string_to_UART(sizeof(error_code_tmp), error_code_tmp, TX_PRIORITY_3);	// отправляем байты статуса по UART
 	}
-	else if (!strcmp(UART_buffer_to_parse, "F"))
+	else if (!strcmp(UART_buffer_to_parse, "V"))									// получить версию USB-CAN адаптера
 	{
-		char error_code_tmp[3];
-		init_char_array_by_zero(sizeof(error_code_tmp), error_code_tmp);
-		FDCAN_ProtocolStatusTypeDef protocol_status;
-		HAL_FDCAN_GetProtocolStatus(&hfdcan1, &protocol_status);
-		error_code_tmp[0] = status_flag_byte_1(protocol_status);
-		error_code_tmp[1] = status_flag_byte_0(protocol_status);
-
-		put_string_to_UART(sizeof(error_code_tmp), error_code_tmp, UART_TX_MESSAGE_PRIORITY_3);
+		put_string_to_UART(sizeof(MESSAGE_FIRMWARE_VERSION), MESSAGE_FIRMWARE_VERSION, TX_PRIORITY_3);	// отправляем версию адаптера
 	}
-	else if (!strcmp(UART_buffer_to_parse, "V"))
+	else if (!strcmp(UART_buffer_to_parse, "N"))									// получить серийный номер USB-CAN адаптера
 	{
-		put_string_to_UART(sizeof(MESSAGE_FIRMWARE_VERSION), MESSAGE_FIRMWARE_VERSION, UART_TX_MESSAGE_PRIORITY_3);
+		put_string_to_UART(sizeof(MESSAGE_SERIAL_NUMBER), MESSAGE_SERIAL_NUMBER, TX_PRIORITY_3);	// отправляем серийный номер
 	}
-	else if (!strcmp(UART_buffer_to_parse, "N"))
+	else if (!strcmp(UART_buffer_to_parse, "RST"))									// перезагрузить адаптер
 	{
-		put_string_to_UART(sizeof(MESSAGE_SERIAL_NUMBER), MESSAGE_SERIAL_NUMBER, UART_TX_MESSAGE_PRIORITY_3);
+		HAL_NVIC_SystemReset();														// вызваем HAL-функцию перезагрузки
 	}
-	else if (!strcmp(UART_buffer_to_parse, "RST"))
+	else if (UART_buffer_to_parse[0] == 't')										// передать стандартное CAN-сообщение (11 бит)
 	{
-		HAL_NVIC_SystemReset();
+		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_STANDARD_ID, FDCAN_DATA_FRAME));	// посылаем сообщение
+		put_single_char_to_UART('z', TX_PRIORITY_3);								// возвращаем символ подтвеждения передачи сообщения
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (UART_buffer_to_parse[0] == 't')
+	else if (UART_buffer_to_parse[0] == 'r')										// передать стандартный remote request (11 бит) по шине CAN
 	{
-		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_STANDARD_ID, FDCAN_DATA_FRAME));
-		put_single_char_to_UART('z', UART_TX_MESSAGE_PRIORITY_3);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_STANDARD_ID, FDCAN_REMOTE_FRAME));	// посылаем remote frame
+		put_single_char_to_UART('z', TX_PRIORITY_3);								// возвращаем символ подтверждения передачи запроса
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (UART_buffer_to_parse[0] == 'r')
+	else if (UART_buffer_to_parse[0] == 'T')										// передать расширенное CAN-сообщение
 	{
-		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_STANDARD_ID, FDCAN_REMOTE_FRAME));
-		put_single_char_to_UART('z', UART_TX_MESSAGE_PRIORITY_3);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_EXTENDED_ID, FDCAN_DATA_FRAME));	// посылаем сообщение
+		put_single_char_to_UART('Z', TX_PRIORITY_3);								// возвращаем символ подтвеждения передачи сообщения
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (UART_buffer_to_parse[0] == 'T')
+	else if (UART_buffer_to_parse[0] == 'R')										// передать стандартный remote request (29 бит) по шине CAN
 	{
-		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_EXTENDED_ID, FDCAN_DATA_FRAME));
-		put_single_char_to_UART('Z', UART_TX_MESSAGE_PRIORITY_3);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_EXTENDED_ID, FDCAN_REMOTE_FRAME));	// посылаем remote frame
+		put_single_char_to_UART('Z', TX_PRIORITY_3);								// возвращаем символ подтверждения передачи запроса
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (UART_buffer_to_parse[0] == 'R')
+	else if (UART_buffer_to_parse[0] == 's')										// установить нестандартный битрейт CAN
 	{
-		send_CAN_frame(UART_buffer_to_parse, set_can_frame_parameters(FDCAN_EXTENDED_ID, FDCAN_REMOTE_FRAME));
-		put_single_char_to_UART('Z', UART_TX_MESSAGE_PRIORITY_3);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		set_non_standard_CAN_bitrate(UART_buffer_to_parse);							// устанавливаем битрейт
 	}
-	else if (UART_buffer_to_parse[0] == 's')
+	else if (UART_buffer_to_parse[0] == 'm')										// задать acceptance mask
 	{
-		set_non_standard_CAN_bitrate(UART_buffer_to_parse);
+		update_CAN_acceptance_mask(count_string_lenght(&UART_buffer_to_parse[1]), &UART_buffer_to_parse[1]);	// задаём acceptance mask
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
-	else if (UART_buffer_to_parse[0] == 'm')
+	else if (UART_buffer_to_parse[0] == 'M')										// задать acceptance code
 	{
-		update_CAN_acceptance_mask(count_string_lenght(&UART_buffer_to_parse[1]), &UART_buffer_to_parse[1]);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
-	}
-	else if (UART_buffer_to_parse[0] == 'M')
-	{
-		update_CAN_acceptance_code(count_string_lenght(&UART_buffer_to_parse[1]), &UART_buffer_to_parse[1]);
-		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, UART_TX_MESSAGE_PRIORITY_3);
+		update_CAN_acceptance_code(count_string_lenght(&UART_buffer_to_parse[1]), &UART_buffer_to_parse[1]);	// задаём acceptance code
+		put_single_char_to_UART(CHAR_CODE_UART_MESSAGE_END, TX_PRIORITY_3);			// возвращаем символ конца сообщения
 	}
 	else if (UART_buffer_to_parse[0] == BEL_CHAR)
 	{
-
+		// !!!
 	}
 }
 
@@ -367,32 +364,35 @@ void CAN_RX_queue_polling(void)
 	}
 }
 
+/*
+ * Парсим CAN-сообщение
+ */
 void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_parse)
 {
-	uint8_t id_lenght;
-	char message_type_char;
-	char message_end_char = CARRIAGE_RETURN_CHAR;
-	uint8_t data_lenght;
-	if (CAN_message_struct_to_parse.CAN_RX_header_buffer.IdType == FDCAN_STANDARD_ID)
+	uint8_t id_lenght;																		// длина CAN ID
+	char message_type_char;																	// символ типа сообщения (стандартное или расширенное)
+	char message_end_char = CARRIAGE_RETURN_CHAR;											// символ конца сообщения
+	uint8_t data_lenght;																	// длина данных в сообщении
+	if (CAN_message_struct_to_parse.CAN_RX_header_buffer.IdType == FDCAN_STANDARD_ID)		// если стандартный CAN ID
 	{
-		id_lenght = STANDARD_CAN_ID_LENGHT;
-		message_type_char = 't';
+		id_lenght = STANDARD_CAN_ID_LENGHT;													// задаём стандартную длину CAN ID
+		message_type_char = 't';															// задаём символ стандартного сообщения
 	}
 	else
 	{
-		id_lenght = EXTENDED_CAN_ID_LENGHT;
-		message_type_char = 'T';
+		id_lenght = EXTENDED_CAN_ID_LENGHT;													// иначе задаём увеличенную длину CAN ID
+		message_type_char = 'T';															// задаём символ расширенного сообщения
 	}
-	data_lenght = CAN_message_data_lenght_define(CAN_message_struct_to_parse.CAN_RX_header_buffer.DataLength)*2;
-	uint8_t id_array[id_lenght];
-	convert_int_value_to_ascii_hex_char_array(sizeof(id_array), id_array, CAN_message_struct_to_parse.CAN_RX_header_buffer.Identifier);
-	uint8_t data_array[data_lenght];
-	for (int i = 0; i < sizeof(data_array); i++)
+	data_lenght = CAN_message_data_lenght_define(CAN_message_struct_to_parse.CAN_RX_header_buffer.DataLength)*2;									// определяем длину данных
+	uint8_t id_array[id_lenght];																													// массив, содержащий ID сообщения
+	convert_int_value_to_ascii_hex_char_array(sizeof(id_array), id_array, CAN_message_struct_to_parse.CAN_RX_header_buffer.Identifier);				// получаем значени ID
+	uint8_t data_array[data_lenght];																												// массив данных
+	for (int i = 0; i < sizeof(data_array); i++)																									// проходимся по массиву данных
 	{
-		if ((i % 2) == 0)
+		if ((i % 2) == 0)																															// для чётных i
 		{
-			uint8_t tmp_arr_2[2];
-			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);
+			uint8_t tmp_arr_2[2];																													// создаём массив из двух элементов
+			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);			// заполняем массив !!!
 			data_array[i] = tmp_arr_2[0];
 			data_array[i + 1] = tmp_arr_2[1];
 		}
@@ -440,7 +440,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 		}
 	}
 	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;
-	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), UART_TX_MESSAGE_PRIORITY_3);
+	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), TX_PRIORITY_3);
 }
 
 uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
@@ -894,56 +894,6 @@ void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32
 	HAL_FDCAN_Init(hfdcan);
 	HAL_FDCAN_Start(hfdcan);
 }
-
-/*
-void add_message_to_UART_TX_queue(uint8_t* message_data_pointer, uint8_t message_size, uint8_t message_priority)
-{
-	if (UART_TX_queue_buffer[UART_TX_put_index].message_size != 0)
-	{
-		//error. вернуть метод queue_full(код ошибки)
-	}
-	UART_TX_queue_buffer[UART_TX_put_index].message_priority = message_priority;
-	UART_TX_queue_buffer[UART_TX_put_index].message_size = message_size;
-	for (int i = 0; i < message_size; i++)
-	{
-		UART_TX_queue_buffer[UART_TX_put_index].message_data[i] = message_data_pointer[i];
-	}
-	UART_TX_put_index++;
-	if (UART_TX_put_index == UART_TX_QUEUE_BUFFER_SIZE)
-	{
-		UART_TX_put_index = 0;
-	}
-}
-*/
-
-/*
-void send_messages_from_UART_TX_queue(void)
-{
-	if (UART_TX_get_index != UART_TX_put_index)
-	{
-		for (int ii = UART_TX_MESSAGE_PRIORITY_0_MAX; ii <= UART_TX_MESSAGE_PRIORITY_4_MIN; ii++)
-		{
-			for (int i = UART_TX_get_index; i != UART_TX_put_index; i++)
-			{
-				if (i == UART_TX_QUEUE_BUFFER_SIZE)
-				{
-				i = 0;
-				}
-				if(UART_TX_queue_buffer[i].message_priority == ii)
-				{
-					send_message_to_UART(UART_TX_queue_buffer[i].message_size, UART_TX_queue_buffer[i].message_data);
-					UART_TX_queue_buffer[i].message_size = 0;
-				}
-			}
-		}
-		UART_TX_get_index = UART_TX_put_index;
-	}
-	if (UART_TX_get_index == UART_TX_QUEUE_BUFFER_SIZE)
-	{
-		UART_TX_get_index = 0;
-	}
-}
-*/
 
 void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8_t *tx_data_pointer)
 {
