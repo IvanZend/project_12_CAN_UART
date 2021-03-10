@@ -16,8 +16,8 @@ extern FDCAN_HandleTypeDef hfdcan1;
  */
 void init_UART_values(void)
 {
-	uart_error_state = UART_NO_ERROR;									// ошибка отсутствует
-	UART_RX_string_buffer_counter = 0;								// счётчик элемента строки-буфера
+	uart_error_state = UART_NO_ERROR;				// ошибка отсутствует
+	UART_RX_string_buffer_counter = 0;				// счётчик элемента строки-буфера
 	UART_RX_put_index = 0;							// обнуляем счётчитк элемента очереди на парсинг, в который ведётся запись
 	UART_RX_get_index = 0;
 	UART_TX_put_index = 0;
@@ -305,7 +305,9 @@ void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority
 	add_message_to_UART_TX_queue(tmp_arr_1, sizeof(tmp_arr_1), message_priority);
 }
 
-
+/*
+ * Добавляем строку в очередь на отправку по UART
+ */
 void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t message_priority)
 {
 	uint8_t tmp_arr_1[size_of_string];
@@ -317,6 +319,9 @@ void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t m
 	add_message_to_UART_TX_queue(tmp_arr_1, sizeof(tmp_arr_1), message_priority);
 }
 
+/*
+ * Отправляем сообщение по UART
+ */
 void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send)
 {
 	for (int ii = 0; ii < message_size; ii++)
@@ -392,57 +397,61 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 		if ((i % 2) == 0)																															// для чётных i
 		{
 			uint8_t tmp_arr_2[2];																													// создаём массив из двух элементов
-			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);			// заполняем массив !!!
-			data_array[i] = tmp_arr_2[0];
+			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);			// заполняем массив ДВУМЯ символами из ОДНОГО элемента
+			data_array[i] = tmp_arr_2[0];																											// помещаем символы в массив данных
 			data_array[i + 1] = tmp_arr_2[1];
 		}
 	}
-	uint8_t timestamp_array[CAN_TIMESTAMP_SIZE];
-	uint8_t timestamp_size_variable;
-	if (timestamp_enabled)
+	uint8_t timestamp_array[CAN_TIMESTAMP_SIZE];											// массив временной метки
+	uint8_t timestamp_size_variable;														// размер временной метки
+	if (timestamp_enabled)																	// если используем временную метку
 	{
-		timestamp_size_variable = CAN_TIMESTAMP_SIZE;
-		convert_int_value_to_ascii_hex_char_array(sizeof(timestamp_array), timestamp_array, CAN_message_struct_to_parse.CAN_RX_timestamp_buffer);
+		timestamp_size_variable = CAN_TIMESTAMP_SIZE;										// размер временной метки задан константой
+		convert_int_value_to_ascii_hex_char_array(sizeof(timestamp_array), timestamp_array, CAN_message_struct_to_parse.CAN_RX_timestamp_buffer);	// получаем временную метку
 	}
 	else
 	{
-		timestamp_size_variable = 0;
+		timestamp_size_variable = 0;														// иначе размер временной метки равен нулю
 	}
-	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + data_lenght + timestamp_size_variable + sizeof(message_end_char)];
-	uint8_t message_element_counter = 0;
-	uint8_t cycle_start_value_tmp = 0;
-	CAN_to_UART_message_buffer[0] = message_type_char;
+	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + \
+									   data_lenght + timestamp_size_variable + sizeof(message_end_char)];				// выходной буфер сообщения
+	uint8_t message_element_counter = 0;																				// индекс символа в сообщении
+	uint8_t cycle_start_value_tmp = 0;																					// индекс символа в сообщении (временное значение)
+	CAN_to_UART_message_buffer[0] = message_type_char;																	// символ - тип сообщения
 	message_element_counter++;
-	cycle_start_value_tmp = message_element_counter;
-	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)
+	cycle_start_value_tmp = message_element_counter;																	// сохраняем индекс символа перед циклом, задействующим несколько следующих символов
+	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)							// проходим по количеству символов, равному размеру ID
 	{
-		CAN_to_UART_message_buffer[i] = id_array[i - cycle_start_value_tmp];
+		CAN_to_UART_message_buffer[i] = id_array[i - cycle_start_value_tmp];											// записываем символ ID
 		message_element_counter++;
 	}
-	uint8_t data_lengt_tmp_buff = convert_data_lenght_to_DLC_code(data_lenght/2);
-	uint8_t CAN_DLS_char_array[1];
-	convert_int_value_to_ascii_hex_char_array(sizeof(CAN_DLS_char_array), CAN_DLS_char_array, data_lengt_tmp_buff);
-	CAN_to_UART_message_buffer[message_element_counter] = CAN_DLS_char_array[0];
+	uint8_t data_lengt_tmp_buff = convert_data_lenght_to_DLC_code(data_lenght/2);										// получаем длину данных в виде int-значения
+	uint8_t CAN_DLS_char_array[1];																						// единичный массив для значения DLS
+	convert_int_value_to_ascii_hex_char_array(sizeof(CAN_DLS_char_array), CAN_DLS_char_array, data_lengt_tmp_buff);		// получаем длину данных в виде символа
+	CAN_to_UART_message_buffer[message_element_counter] = CAN_DLS_char_array[0];										// записываем DLS в выходной буфер
 	message_element_counter++;
 	cycle_start_value_tmp = message_element_counter;
-	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)
+	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)						// проходим по количеству символов, равному размеру данных
 	{
-		CAN_to_UART_message_buffer[i] = data_array[i - cycle_start_value_tmp];
+		CAN_to_UART_message_buffer[i] = data_array[i - cycle_start_value_tmp];											// записываем данные
 		message_element_counter++;
 	}
-	if (timestamp_enabled)
+	if (timestamp_enabled)																								// если временная метка используется
 	{
 		cycle_start_value_tmp = message_element_counter;
-		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)
+		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)				// проходим по количеству символов, равному размеру временной метки
 		{
-			CAN_to_UART_message_buffer[i] = timestamp_array[i - cycle_start_value_tmp];
+			CAN_to_UART_message_buffer[i] = timestamp_array[i - cycle_start_value_tmp];									// записываем временную метку
 			message_element_counter++;
 		}
 	}
-	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;
-	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), TX_PRIORITY_3);
+	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;												// записываем символ конца сообщения
+	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), TX_PRIORITY_3);		// добавляем сообщение в очередь на отправку по UART
 }
 
+/*
+ * Конвертируем int-значение длины данных в код DLS согласно протоколу
+ */
 uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
 {
 	uint8_t DLC_code;
@@ -532,6 +541,9 @@ uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
 	return DLC_code;
 }
 
+/*
+ * Конвертируем int-значение в hex-символ
+ */
 void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* array, uint32_t value)
 {
 	for (int i = 0; i < size_of_array; i++)
@@ -541,6 +553,9 @@ void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* a
 	}
 }
 
+/*
+ * Устанавливаем нестандартный битрейт CAN
+ */
 void set_non_standard_CAN_bitrate(char* UART_message)
 {
 	uint32_t tmp_prescaler = convert_hex_char_sequence_to_int_value(NON_STAND_CAN_PRESCALER_SIZE, &UART_message[NON_STAND_CAN_PRESCALER_INDEX]);
@@ -550,6 +565,9 @@ void set_non_standard_CAN_bitrate(char* UART_message)
 	CAN_baudrate_change(&hfdcan1, tmp_prescaler, tmp_SJW, tmp_seg1, tmp_seg2);
 }
 
+/*
+ * Конвертируем int в char (по таблице ASCII)
+ */
 void int_to_char(uint8_t* variable_pointer)
 {
 	if (*variable_pointer <= 9)
@@ -562,6 +580,9 @@ void int_to_char(uint8_t* variable_pointer)
 	}
 }
 
+/*
+ * инициализируем индексы и флаги CAN
+ */
 void init_CAN_values(void)
 {
 	CAN_RX_put_index = 0;
@@ -572,6 +593,9 @@ void init_CAN_values(void)
 	CAN_RX_success_flag = 0;
 }
 
+/*
+ * Задаём параметры CAN-фрейма на отправку
+ */
 CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set, uint32_t frame_type_set)
 {
 	CAN_ParametersSet_StructTypeDef CAN_frame_parameters;
@@ -612,24 +636,30 @@ CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set, u
 	return CAN_frame_parameters;
 }
 
+/*
+ * Посылаем CAN-фрейм
+ */
 void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef CAN_frame_parameters_set)
 {
-	uint32_t identifier = convert_hex_char_sequence_to_int_value(CAN_frame_parameters_set.id_lenght_in_bytes, &can_buffer_to_parse[CAN_frame_parameters_set.id_byte_number]);
-	uint32_t data_lenght = CAN_TX_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));
-	uint8_t can_tx_data_buffer[convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number])];
-	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)
+	uint32_t identifier = convert_hex_char_sequence_to_int_value(CAN_frame_parameters_set.id_lenght_in_bytes, &can_buffer_to_parse[CAN_frame_parameters_set.id_byte_number]); 	// Получаем ID
+	uint32_t data_lenght = CAN_TX_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));			// Получаем длину данных
+	uint8_t can_tx_data_buffer[convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number])];										// Буфер данных на отправку
+	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)																						// проходим буфер данных на отправку
 	{
-		if ((i % 2) == 0)
+		if ((i % 2) == 0)																															// для каждого чётного i
 		{
-			uint8_t value_array[2];
+			uint8_t value_array[2];																													// ДВА int-значения из ОДНОГО 2-байтового hex-символа
 			value_array[0] = convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_start_byte_number + i]);
 			value_array[1] = convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_start_byte_number + i + 1]);
-			can_tx_data_buffer[i/2] = unite_digits_sequence(sizeof(value_array), value_array, ASCII_TO_INT_CONVERT_BITWISE_SHIFT);
+			can_tx_data_buffer[i/2] = unite_digits_sequence(sizeof(value_array), value_array, ASCII_TO_INT_CONVERT_BITWISE_SHIFT);					// преобразуем старшие и младшие разряды в единое число
 		}
 	}
-	CAN_transmit_message(CAN_frame_parameters_set.id_type, CAN_frame_parameters_set.frame_type, identifier, data_lenght, can_tx_data_buffer);
+	CAN_transmit_message(CAN_frame_parameters_set.id_type, CAN_frame_parameters_set.frame_type, identifier, data_lenght, can_tx_data_buffer);		// отправляем CAN-сообщение
 }
 
+/*
+ * Конвертируем hex-символ в int-значение, получаем его номер в таблице ASCII
+ */
 uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert)
 {
 	uint8_t int_value = 0;
@@ -644,6 +674,9 @@ uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert)
 	return int_value;
 }
 
+/*
+ * Преборазуем char-разряды в int-число
+ */
 uint32_t convert_hex_char_sequence_to_int_value(uint8_t number_of_chars, char* char_array_pointer)
 {
 	uint8_t tmp_arr_2[number_of_chars];
@@ -655,6 +688,9 @@ uint32_t convert_hex_char_sequence_to_int_value(uint8_t number_of_chars, char* c
 	return return_int_value;
 }
 
+/*
+ * Определяем int-значение DLC из HAL-кодировки
+ */
 uint32_t CAN_message_data_lenght_define(uint32_t data_lenght_code)
 {
 	uint32_t lenght_bytes;
@@ -744,6 +780,9 @@ uint32_t CAN_message_data_lenght_define(uint32_t data_lenght_code)
 	return lenght_bytes;
 }
 
+/*
+ * Определяем длину DLS в байтах
+ */
 uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes)
 {
 	uint32_t DLC_bytes;
@@ -833,6 +872,9 @@ uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes)
 	return DLC_bytes;
 }
 
+/*
+ * Формируем CAN-сообщение и добавляем в очередь на отправку
+ */
 void CAN_transmit_message(uint32_t id_type, uint32_t frame_type, uint32_t identifier, uint32_t data_lenght, uint8_t* tx_data)
 {
 	FDCAN_TxHeaderTypeDef tx_header;
@@ -866,6 +908,9 @@ void init_int_array_by_zero(uint16_t array_size, uint8_t* array_pointer)
 	}
 }
 
+/*
+ * Объединяем старшие и младшие разряды в единое int-значение
+ */
 uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift)
 {
 	uint32_t summary_value = 0;
@@ -876,6 +921,9 @@ uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_poi
 	return summary_value;
 }
 
+/*
+ * Задаём режим работы CAN
+ */
 void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode)
 {
 	HAL_FDCAN_Stop(hfdcan);
@@ -884,6 +932,9 @@ void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode)
 	HAL_FDCAN_Start(hfdcan);
 }
 
+/*
+ * Задаём битрейт и тайминги CAN
+ */
 void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32_t SJW, uint32_t seg1, uint32_t seg2)
 {
 	HAL_FDCAN_Stop(hfdcan);
@@ -895,6 +946,9 @@ void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32
 	HAL_FDCAN_Start(hfdcan);
 }
 
+/*
+ * Добавляем CAN-сообщение в очередь на отправку
+ */
 void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8_t *tx_data_pointer)
 {
 	CAN_TX_queue_buffer[CAN_TX_put_index].message_header = *tx_header_pointer;
@@ -909,6 +963,9 @@ void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8
 	}
 }
 
+/*
+ * Посылаем CAN-сообщения из очереди
+ */
 void send_messages_from_CAN_TX_queue(void)
 {
 	if (CAN_TX_get_index != CAN_TX_put_index)
@@ -929,10 +986,13 @@ void send_messages_from_CAN_TX_queue(void)
 	}
 }
 
+/*
+ * Определяем длину строки
+ */
 uint8_t count_string_lenght(char* ch_string)
 {
 	uint8_t number_of_chars = 0;
-	while (ch_string[number_of_chars] != '\0')
+	while (ch_string[number_of_chars] != '\0') 			// ищем нуль-символ
 	{
 		number_of_chars++;
 		if (number_of_chars == UART_STRING_MAX_SIZE)
@@ -943,6 +1003,9 @@ uint8_t count_string_lenght(char* ch_string)
 	return number_of_chars;
 }
 
+/*
+ * Инициализируем CAN-фильтр
+ */
 void init_CAN_filter(void)
 {
 	filter_config.IdType = FDCAN_STANDARD_ID;	//FDCAN_STANDARD_ID;
@@ -980,6 +1043,9 @@ void update_CAN_acceptance_mask(uint8_t string_size, char* string_pointer)
 	}
 }
 
+/*
+ * меняем CAN-accptance code
+ */
 void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer)
 {
 	switch (string_size)
@@ -1001,6 +1067,9 @@ void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer)
 	}
 }
 
+/*
+ * Получаем младший байт статуса CAN-шины
+ */
 char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status)
 {
 	uint8_t value_tmp = protocol_status.LastErrorCode;
@@ -1008,6 +1077,9 @@ char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status)
 	return convert_int_value_to_ascii_char(value_tmp);
 }
 
+/*
+ * Получаем старший байт статуса CAN-шины
+ */
 char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status)
 {
 	uint8_t value_tmp = CAN_RX_success_flag;
@@ -1017,6 +1089,9 @@ char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status)
 	return convert_int_value_to_ascii_char(value_tmp);
 }
 
+/*
+ * Конвертируем int-значение в ASCII-символ
+ */
 char convert_int_value_to_ascii_char(uint8_t int_value)
 {
 	char value_return = 0;

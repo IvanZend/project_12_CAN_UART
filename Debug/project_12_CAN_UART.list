@@ -37,13 +37,13 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  16 .debug_macro  0002026b  00000000  00000000  0003ec28  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   000148f9  00000000  00000000  0005ee93  2**0
+ 17 .debug_line   000148f7  00000000  00000000  0005ee93  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000ce17b  00000000  00000000  0007378c  2**0
+ 18 .debug_str    000ce17b  00000000  00000000  0007378a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000053  00000000  00000000  00141907  2**0
+ 19 .comment      00000053  00000000  00000000  00141905  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  0000566c  00000000  00000000  0014195c  2**2
+ 20 .debug_frame  0000566c  00000000  00000000  00141958  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -2316,11 +2316,11 @@ void init_UART_values(void)
 {
  8000ff4:	b480      	push	{r7}
  8000ff6:	af00      	add	r7, sp, #0
-	uart_error_state = UART_NO_ERROR;									// ошибка отсутствует
+	uart_error_state = UART_NO_ERROR;				// ошибка отсутствует
  8000ff8:	4b0c      	ldr	r3, [pc, #48]	; (800102c <init_UART_values+0x38>)
  8000ffa:	2200      	movs	r2, #0
  8000ffc:	701a      	strb	r2, [r3, #0]
-	UART_RX_string_buffer_counter = 0;								// счётчик элемента строки-буфера
+	UART_RX_string_buffer_counter = 0;				// счётчик элемента строки-буфера
  8000ffe:	4b0c      	ldr	r3, [pc, #48]	; (8001030 <init_UART_values+0x3c>)
  8001000:	2200      	movs	r2, #0
  8001002:	701a      	strb	r2, [r3, #0]
@@ -3364,7 +3364,9 @@ void put_single_char_to_UART(uint8_t char_code_to_send, uint8_t message_priority
 
 080017e2 <put_string_to_UART>:
 
-
+/*
+ * Добавляем строку в очередь на отправку по UART
+ */
 void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t message_priority)
 {
  80017e2:	b5b0      	push	{r4, r5, r7, lr}
@@ -3450,6 +3452,9 @@ void put_string_to_UART(uint16_t size_of_string, char* string_to_send, uint8_t m
 
 08001884 <send_message_to_UART>:
 
+/*
+ * Отправляем сообщение по UART
+ */
 void send_message_to_UART(uint16_t message_size, uint8_t* message_to_send)
 {
  8001884:	b580      	push	{r7, lr}
@@ -3770,7 +3775,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001ac0:	d119      	bne.n	8001af6 <parse_CAN_message+0x12e>
 		{
 			uint8_t tmp_arr_2[2];																													// создаём массив из двух элементов
-			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);			// заполняем массив !!!
+			convert_int_value_to_ascii_hex_char_array(sizeof(tmp_arr_2), tmp_arr_2, CAN_message_struct_to_parse.CAN_RX_data_buffer[i/2]);			// заполняем массив ДВУМЯ символами из ОДНОГО элемента
  8001ac2:	6afb      	ldr	r3, [r7, #44]	; 0x2c
  8001ac4:	0fda      	lsrs	r2, r3, #31
  8001ac6:	4413      	add	r3, r2
@@ -3783,7 +3788,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001ad8:	4619      	mov	r1, r3
  8001ada:	2002      	movs	r0, #2
  8001adc:	f000 f9ba 	bl	8001e54 <convert_int_value_to_ascii_hex_char_array>
-			data_array[i] = tmp_arr_2[0];
+			data_array[i] = tmp_arr_2[0];																											// помещаем символы в массив данных
  8001ae0:	7839      	ldrb	r1, [r7, #0]
  8001ae2:	69ba      	ldr	r2, [r7, #24]
  8001ae4:	6afb      	ldr	r3, [r7, #44]	; 0x2c
@@ -3806,18 +3811,18 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001b02:	d8d9      	bhi.n	8001ab8 <parse_CAN_message+0xf0>
 		}
 	}
-	uint8_t timestamp_array[CAN_TIMESTAMP_SIZE];
-	uint8_t timestamp_size_variable;
-	if (timestamp_enabled)
+	uint8_t timestamp_array[CAN_TIMESTAMP_SIZE];											// массив временной метки
+	uint8_t timestamp_size_variable;														// размер временной метки
+	if (timestamp_enabled)																	// если используем временную метку
  8001b04:	4b6f      	ldr	r3, [pc, #444]	; (8001cc4 <parse_CAN_message+0x2fc>)
  8001b06:	781b      	ldrb	r3, [r3, #0]
  8001b08:	2b00      	cmp	r3, #0
  8001b0a:	d00c      	beq.n	8001b26 <parse_CAN_message+0x15e>
 	{
-		timestamp_size_variable = CAN_TIMESTAMP_SIZE;
+		timestamp_size_variable = CAN_TIMESTAMP_SIZE;										// размер временной метки задан константой
  8001b0c:	2304      	movs	r3, #4
  8001b0e:	f887 3032 	strb.w	r3, [r7, #50]	; 0x32
-		convert_int_value_to_ascii_hex_char_array(sizeof(timestamp_array), timestamp_array, CAN_message_struct_to_parse.CAN_RX_timestamp_buffer);
+		convert_int_value_to_ascii_hex_char_array(sizeof(timestamp_array), timestamp_array, CAN_message_struct_to_parse.CAN_RX_timestamp_buffer);	// получаем временную метку
  8001b12:	f8b7 309c 	ldrh.w	r3, [r7, #156]	; 0x9c
  8001b16:	461a      	mov	r2, r3
  8001b18:	f107 0308 	add.w	r3, r7, #8
@@ -3828,20 +3833,24 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 	}
 	else
 	{
-		timestamp_size_variable = 0;
+		timestamp_size_variable = 0;														// иначе размер временной метки равен нулю
  8001b26:	2300      	movs	r3, #0
  8001b28:	f887 3032 	strb.w	r3, [r7, #50]	; 0x32
 	}
-	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + data_lenght + timestamp_size_variable + sizeof(message_end_char)];
+	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + \
  8001b2c:	f897 202a 	ldrb.w	r2, [r7, #42]	; 0x2a
  8001b30:	f897 3028 	ldrb.w	r3, [r7, #40]	; 0x28
  8001b34:	441a      	add	r2, r3
+									   data_lenght + timestamp_size_variable + sizeof(message_end_char)];				// выходной буфер сообщения
  8001b36:	f897 3032 	ldrb.w	r3, [r7, #50]	; 0x32
  8001b3a:	4413      	add	r3, r2
  8001b3c:	1cdc      	adds	r4, r3, #3
+	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + \
  8001b3e:	466b      	mov	r3, sp
  8001b40:	4699      	mov	r9, r3
+									   data_lenght + timestamp_size_variable + sizeof(message_end_char)];				// выходной буфер сообщения
  8001b42:	4623      	mov	r3, r4
+	uint8_t CAN_to_UART_message_buffer[sizeof(message_type_char) + id_lenght + CAN_DATA_LENGHT_BYTE_SIZE + \
  8001b44:	3b01      	subs	r3, #1
  8001b46:	617b      	str	r3, [r7, #20]
  8001b48:	4620      	mov	r0, r4
@@ -3865,13 +3874,13 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001b7e:	466b      	mov	r3, sp
  8001b80:	3300      	adds	r3, #0
  8001b82:	613b      	str	r3, [r7, #16]
-	uint8_t message_element_counter = 0;
+	uint8_t message_element_counter = 0;																				// индекс символа в сообщении
  8001b84:	2300      	movs	r3, #0
  8001b86:	f887 3033 	strb.w	r3, [r7, #51]	; 0x33
-	uint8_t cycle_start_value_tmp = 0;
+	uint8_t cycle_start_value_tmp = 0;																					// индекс символа в сообщении (временное значение)
  8001b8a:	2300      	movs	r3, #0
  8001b8c:	73fb      	strb	r3, [r7, #15]
-	CAN_to_UART_message_buffer[0] = message_type_char;
+	CAN_to_UART_message_buffer[0] = message_type_char;																	// символ - тип сообщения
  8001b8e:	693b      	ldr	r3, [r7, #16]
  8001b90:	f897 202b 	ldrb.w	r2, [r7, #43]	; 0x2b
  8001b94:	701a      	strb	r2, [r3, #0]
@@ -3879,15 +3888,15 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001b96:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001b9a:	3301      	adds	r3, #1
  8001b9c:	f887 3033 	strb.w	r3, [r7, #51]	; 0x33
-	cycle_start_value_tmp = message_element_counter;
+	cycle_start_value_tmp = message_element_counter;																	// сохраняем индекс символа перед циклом, задействующим несколько следующих символов
  8001ba0:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001ba4:	73fb      	strb	r3, [r7, #15]
-	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)
+	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)							// проходим по количеству символов, равному размеру ID
  8001ba6:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001baa:	637b      	str	r3, [r7, #52]	; 0x34
  8001bac:	e011      	b.n	8001bd2 <parse_CAN_message+0x20a>
 	{
-		CAN_to_UART_message_buffer[i] = id_array[i - cycle_start_value_tmp];
+		CAN_to_UART_message_buffer[i] = id_array[i - cycle_start_value_tmp];											// записываем символ ID
  8001bae:	7bfb      	ldrb	r3, [r7, #15]
  8001bb0:	6b7a      	ldr	r2, [r7, #52]	; 0x34
  8001bb2:	1ad3      	subs	r3, r2, r3
@@ -3902,7 +3911,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001bc2:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001bc6:	3301      	adds	r3, #1
  8001bc8:	f887 3033 	strb.w	r3, [r7, #51]	; 0x33
-	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)
+	for (int i = message_element_counter; i < (sizeof(id_array) + cycle_start_value_tmp); i++)							// проходим по количеству символов, равному размеру ID
  8001bcc:	6b7b      	ldr	r3, [r7, #52]	; 0x34
  8001bce:	3301      	adds	r3, #1
  8001bd0:	637b      	str	r3, [r7, #52]	; 0x34
@@ -3913,7 +3922,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001bda:	429a      	cmp	r2, r3
  8001bdc:	d8e7      	bhi.n	8001bae <parse_CAN_message+0x1e6>
 	}
-	uint8_t data_lengt_tmp_buff = convert_data_lenght_to_DLC_code(data_lenght/2);
+	uint8_t data_lengt_tmp_buff = convert_data_lenght_to_DLC_code(data_lenght/2);										// получаем длину данных в виде int-значения
  8001bde:	f897 3028 	ldrb.w	r3, [r7, #40]	; 0x28
  8001be2:	085b      	lsrs	r3, r3, #1
  8001be4:	b2db      	uxtb	r3, r3
@@ -3921,14 +3930,14 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001be8:	f000 f86e 	bl	8001cc8 <convert_data_lenght_to_DLC_code>
  8001bec:	4603      	mov	r3, r0
  8001bee:	73bb      	strb	r3, [r7, #14]
-	uint8_t CAN_DLS_char_array[1];
-	convert_int_value_to_ascii_hex_char_array(sizeof(CAN_DLS_char_array), CAN_DLS_char_array, data_lengt_tmp_buff);
+	uint8_t CAN_DLS_char_array[1];																						// единичный массив для значения DLS
+	convert_int_value_to_ascii_hex_char_array(sizeof(CAN_DLS_char_array), CAN_DLS_char_array, data_lengt_tmp_buff);		// получаем длину данных в виде символа
  8001bf0:	7bba      	ldrb	r2, [r7, #14]
  8001bf2:	1d3b      	adds	r3, r7, #4
  8001bf4:	4619      	mov	r1, r3
  8001bf6:	2001      	movs	r0, #1
  8001bf8:	f000 f92c 	bl	8001e54 <convert_int_value_to_ascii_hex_char_array>
-	CAN_to_UART_message_buffer[message_element_counter] = CAN_DLS_char_array[0];
+	CAN_to_UART_message_buffer[message_element_counter] = CAN_DLS_char_array[0];										// записываем DLS в выходной буфер
  8001bfc:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c00:	7939      	ldrb	r1, [r7, #4]
  8001c02:	693a      	ldr	r2, [r7, #16]
@@ -3940,12 +3949,12 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 	cycle_start_value_tmp = message_element_counter;
  8001c10:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c14:	73fb      	strb	r3, [r7, #15]
-	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)
+	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)						// проходим по количеству символов, равному размеру данных
  8001c16:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c1a:	63bb      	str	r3, [r7, #56]	; 0x38
  8001c1c:	e011      	b.n	8001c42 <parse_CAN_message+0x27a>
 	{
-		CAN_to_UART_message_buffer[i] = data_array[i - cycle_start_value_tmp];
+		CAN_to_UART_message_buffer[i] = data_array[i - cycle_start_value_tmp];											// записываем данные
  8001c1e:	7bfb      	ldrb	r3, [r7, #15]
  8001c20:	6bba      	ldr	r2, [r7, #56]	; 0x38
  8001c22:	1ad3      	subs	r3, r2, r3
@@ -3960,7 +3969,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001c32:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c36:	3301      	adds	r3, #1
  8001c38:	f887 3033 	strb.w	r3, [r7, #51]	; 0x33
-	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)
+	for (int i = message_element_counter; i < (sizeof(data_array) + cycle_start_value_tmp); i++)						// проходим по количеству символов, равному размеру данных
  8001c3c:	6bbb      	ldr	r3, [r7, #56]	; 0x38
  8001c3e:	3301      	adds	r3, #1
  8001c40:	63bb      	str	r3, [r7, #56]	; 0x38
@@ -3971,7 +3980,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001c4a:	429a      	cmp	r2, r3
  8001c4c:	d8e7      	bhi.n	8001c1e <parse_CAN_message+0x256>
 	}
-	if (timestamp_enabled)
+	if (timestamp_enabled)																								// если временная метка используется
  8001c4e:	4b1d      	ldr	r3, [pc, #116]	; (8001cc4 <parse_CAN_message+0x2fc>)
  8001c50:	781b      	ldrb	r3, [r3, #0]
  8001c52:	2b00      	cmp	r3, #0
@@ -3980,12 +3989,12 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 		cycle_start_value_tmp = message_element_counter;
  8001c56:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c5a:	73fb      	strb	r3, [r7, #15]
-		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)
+		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)				// проходим по количеству символов, равному размеру временной метки
  8001c5c:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c60:	63fb      	str	r3, [r7, #60]	; 0x3c
  8001c62:	e014      	b.n	8001c8e <parse_CAN_message+0x2c6>
 		{
-			CAN_to_UART_message_buffer[i] = timestamp_array[i - cycle_start_value_tmp];
+			CAN_to_UART_message_buffer[i] = timestamp_array[i - cycle_start_value_tmp];									// записываем временную метку
  8001c64:	7bfb      	ldrb	r3, [r7, #15]
  8001c66:	6bfa      	ldr	r2, [r7, #60]	; 0x3c
  8001c68:	1ad3      	subs	r3, r2, r3
@@ -4001,7 +4010,7 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001c7e:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c82:	3301      	adds	r3, #1
  8001c84:	f887 3033 	strb.w	r3, [r7, #51]	; 0x33
-		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)
+		for (int i = message_element_counter; i < (sizeof(timestamp_array) + cycle_start_value_tmp); i++)				// проходим по количеству символов, равному размеру временной метки
  8001c88:	6bfb      	ldr	r3, [r7, #60]	; 0x3c
  8001c8a:	3301      	adds	r3, #1
  8001c8c:	63fb      	str	r3, [r7, #60]	; 0x3c
@@ -4012,12 +4021,12 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
  8001c96:	d8e5      	bhi.n	8001c64 <parse_CAN_message+0x29c>
 		}
 	}
-	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;
+	CAN_to_UART_message_buffer[message_element_counter] = message_end_char;												// записываем символ конца сообщения
  8001c98:	f897 3033 	ldrb.w	r3, [r7, #51]	; 0x33
  8001c9c:	693a      	ldr	r2, [r7, #16]
  8001c9e:	f897 1029 	ldrb.w	r1, [r7, #41]	; 0x29
  8001ca2:	54d1      	strb	r1, [r2, r3]
-	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), TX_PRIORITY_3);
+	add_message_to_UART_TX_queue(CAN_to_UART_message_buffer, sizeof(CAN_to_UART_message_buffer), TX_PRIORITY_3);		// добавляем сообщение в очередь на отправку по UART
  8001ca4:	693b      	ldr	r3, [r7, #16]
  8001ca6:	b2e1      	uxtb	r1, r4
  8001ca8:	2203      	movs	r2, #3
@@ -4037,6 +4046,9 @@ void parse_CAN_message(CAN_RX_DataBuffer_StructTypeDef CAN_message_struct_to_par
 
 08001cc8 <convert_data_lenght_to_DLC_code>:
 
+/*
+ * Конвертируем int-значение длины данных в код DLS согласно протоколу
+ */
 uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
 {
  8001cc8:	b480      	push	{r7}
@@ -4258,6 +4270,9 @@ uint8_t convert_data_lenght_to_DLC_code(uint8_t value_to_convert)
 
 08001e54 <convert_int_value_to_ascii_hex_char_array>:
 
+/*
+ * Конвертируем int-значение в hex-символ
+ */
 void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* array, uint32_t value)
 {
  8001e54:	b580      	push	{r7, lr}
@@ -4311,6 +4326,9 @@ void convert_int_value_to_ascii_hex_char_array(uint8_t size_of_array, uint8_t* a
 
 08001eac <set_non_standard_CAN_bitrate>:
 
+/*
+ * Устанавливаем нестандартный битрейт CAN
+ */
 void set_non_standard_CAN_bitrate(char* UART_message)
 {
  8001eac:	b580      	push	{r7, lr}
@@ -4362,6 +4380,9 @@ void set_non_standard_CAN_bitrate(char* UART_message)
 
 08001f08 <int_to_char>:
 
+/*
+ * Конвертируем int в char (по таблице ASCII)
+ */
 void int_to_char(uint8_t* variable_pointer)
 {
  8001f08:	b480      	push	{r7}
@@ -4405,6 +4426,9 @@ void int_to_char(uint8_t* variable_pointer)
 
 08001f40 <init_CAN_values>:
 
+/*
+ * инициализируем индексы и флаги CAN
+ */
 void init_CAN_values(void)
 {
  8001f40:	b480      	push	{r7}
@@ -4448,6 +4472,9 @@ void init_CAN_values(void)
 
 08001f8c <set_can_frame_parameters>:
 
+/*
+ * Задаём параметры CAN-фрейма на отправку
+ */
 CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set, uint32_t frame_type_set)
 {
  8001f8c:	b490      	push	{r4, r7}
@@ -4548,6 +4575,9 @@ CAN_ParametersSet_StructTypeDef set_can_frame_parameters(uint32_t id_type_set, u
 
 0800200e <send_CAN_frame>:
 
+/*
+ * Посылаем CAN-фрейм
+ */
 void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef CAN_frame_parameters_set)
 {
  800200e:	b5b0      	push	{r4, r5, r7, lr}
@@ -4558,7 +4588,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  8002018:	e880 000e 	stmia.w	r0, {r1, r2, r3}
  800201c:	466b      	mov	r3, sp
  800201e:	461d      	mov	r5, r3
-	uint32_t identifier = convert_hex_char_sequence_to_int_value(CAN_frame_parameters_set.id_lenght_in_bytes, &can_buffer_to_parse[CAN_frame_parameters_set.id_byte_number]);
+	uint32_t identifier = convert_hex_char_sequence_to_int_value(CAN_frame_parameters_set.id_lenght_in_bytes, &can_buffer_to_parse[CAN_frame_parameters_set.id_byte_number]); 	// Получаем ID
  8002020:	7a3a      	ldrb	r2, [r7, #8]
  8002022:	7a7b      	ldrb	r3, [r7, #9]
  8002024:	4619      	mov	r1, r3
@@ -4568,7 +4598,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  800202c:	4610      	mov	r0, r2
  800202e:	f000 f899 	bl	8002164 <convert_hex_char_sequence_to_int_value>
  8002032:	6238      	str	r0, [r7, #32]
-	uint32_t data_lenght = CAN_TX_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));
+	uint32_t data_lenght = CAN_TX_message_DLC_bytes_define(convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number]));			// Получаем длину данных
  8002034:	7abb      	ldrb	r3, [r7, #10]
  8002036:	461a      	mov	r2, r3
  8002038:	68fb      	ldr	r3, [r7, #12]
@@ -4580,7 +4610,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  8002046:	4618      	mov	r0, r3
  8002048:	f000 f998 	bl	800237c <CAN_TX_message_DLC_bytes_define>
  800204c:	61f8      	str	r0, [r7, #28]
-	uint8_t can_tx_data_buffer[convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number])];
+	uint8_t can_tx_data_buffer[convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_lenght_byte_number])];										// Буфер данных на отправку
  800204e:	7abb      	ldrb	r3, [r7, #10]
  8002050:	461a      	mov	r2, r3
  8002052:	68fb      	ldr	r3, [r7, #12]
@@ -4615,18 +4645,18 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  80020a0:	ab02      	add	r3, sp, #8
  80020a2:	3300      	adds	r3, #0
  80020a4:	617b      	str	r3, [r7, #20]
-	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)
+	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)																						// проходим буфер данных на отправку
  80020a6:	2300      	movs	r3, #0
  80020a8:	627b      	str	r3, [r7, #36]	; 0x24
  80020aa:	e031      	b.n	8002110 <send_CAN_frame+0x102>
 	{
-		if ((i % 2) == 0)
+		if ((i % 2) == 0)																															// для каждого чётного i
  80020ac:	6a7b      	ldr	r3, [r7, #36]	; 0x24
  80020ae:	f003 0301 	and.w	r3, r3, #1
  80020b2:	2b00      	cmp	r3, #0
  80020b4:	d129      	bne.n	800210a <send_CAN_frame+0xfc>
 		{
-			uint8_t value_array[2];
+			uint8_t value_array[2];																													// ДВА int-значения из ОДНОГО 2-байтового hex-символа
 			value_array[0] = convert_ascii_hex_char_to_int_value(can_buffer_to_parse[CAN_frame_parameters_set.data_start_byte_number + i]);
  80020b6:	7afb      	ldrb	r3, [r7, #11]
  80020b8:	461a      	mov	r2, r3
@@ -4653,7 +4683,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  80020e2:	f000 f827 	bl	8002134 <convert_ascii_hex_char_to_int_value>
  80020e6:	4603      	mov	r3, r0
  80020e8:	747b      	strb	r3, [r7, #17]
-			can_tx_data_buffer[i/2] = unite_digits_sequence(sizeof(value_array), value_array, ASCII_TO_INT_CONVERT_BITWISE_SHIFT);
+			can_tx_data_buffer[i/2] = unite_digits_sequence(sizeof(value_array), value_array, ASCII_TO_INT_CONVERT_BITWISE_SHIFT);					// преобразуем старшие и младшие разряды в единое число
  80020ea:	f107 0310 	add.w	r3, r7, #16
  80020ee:	2204      	movs	r2, #4
  80020f0:	4619      	mov	r1, r3
@@ -4668,7 +4698,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  8002104:	b2c9      	uxtb	r1, r1
  8002106:	697b      	ldr	r3, [r7, #20]
  8002108:	5499      	strb	r1, [r3, r2]
-	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)
+	for (int i = 0; i < (sizeof(can_tx_data_buffer)*2); i++)																						// проходим буфер данных на отправку
  800210a:	6a7b      	ldr	r3, [r7, #36]	; 0x24
  800210c:	3301      	adds	r3, #1
  800210e:	627b      	str	r3, [r7, #36]	; 0x24
@@ -4679,7 +4709,7 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
  8002118:	d8c8      	bhi.n	80020ac <send_CAN_frame+0x9e>
 		}
 	}
-	CAN_transmit_message(CAN_frame_parameters_set.id_type, CAN_frame_parameters_set.frame_type, identifier, data_lenght, can_tx_data_buffer);
+	CAN_transmit_message(CAN_frame_parameters_set.id_type, CAN_frame_parameters_set.frame_type, identifier, data_lenght, can_tx_data_buffer);		// отправляем CAN-сообщение
  800211a:	6838      	ldr	r0, [r7, #0]
  800211c:	6879      	ldr	r1, [r7, #4]
  800211e:	697b      	ldr	r3, [r7, #20]
@@ -4696,6 +4726,9 @@ void send_CAN_frame(char* can_buffer_to_parse, CAN_ParametersSet_StructTypeDef C
 
 08002134 <convert_ascii_hex_char_to_int_value>:
 
+/*
+ * Конвертируем hex-символ в int-значение, получаем его номер в таблице ASCII
+ */
 uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert)
 {
  8002134:	b480      	push	{r7}
@@ -4735,6 +4768,9 @@ uint8_t convert_ascii_hex_char_to_int_value(char char_to_convert)
 
 08002164 <convert_hex_char_sequence_to_int_value>:
 
+/*
+ * Преборазуем char-разряды в int-число
+ */
 uint32_t convert_hex_char_sequence_to_int_value(uint8_t number_of_chars, char* char_array_pointer)
 {
  8002164:	b5b0      	push	{r4, r5, r7, lr}
@@ -4818,6 +4854,9 @@ uint32_t convert_hex_char_sequence_to_int_value(uint8_t number_of_chars, char* c
 
 08002204 <CAN_message_data_lenght_define>:
 
+/*
+ * Определяем int-значение DLC из HAL-кодировки
+ */
 uint32_t CAN_message_data_lenght_define(uint32_t data_lenght_code)
 {
  8002204:	b480      	push	{r7}
@@ -5059,6 +5098,9 @@ uint32_t CAN_message_data_lenght_define(uint32_t data_lenght_code)
 
 0800237c <CAN_TX_message_DLC_bytes_define>:
 
+/*
+ * Определяем длину DLS в байтах
+ */
 uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes)
 {
  800237c:	b480      	push	{r7}
@@ -5229,6 +5271,9 @@ uint32_t CAN_TX_message_DLC_bytes_define(uint32_t data_lenght_bytes)
 
 0800245c <CAN_transmit_message>:
 
+/*
+ * Формируем CAN-сообщение и добавляем в очередь на отправку
+ */
 void CAN_transmit_message(uint32_t id_type, uint32_t frame_type, uint32_t identifier, uint32_t data_lenght, uint8_t* tx_data)
 {
  800245c:	b580      	push	{r7, lr}
@@ -5317,10 +5362,10 @@ void init_char_array_by_zero(uint16_t array_size, char* array_pointer)
  80024d8:	4770      	bx	lr
 
 080024da <unite_digits_sequence>:
-		*(array_pointer + int_zero_counter) = 0;
-	}
-}
 
+/*
+ * Объединяем старшие и младшие разряды в единое int-значение
+ */
 uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_pointer, uint8_t bitwise_shift)
 {
  80024da:	b480      	push	{r7}
@@ -5376,6 +5421,9 @@ uint32_t unite_digits_sequence(uint8_t number_of_values, uint8_t *byte_array_poi
 
 08002534 <CAN_mode_change>:
 
+/*
+ * Задаём режим работы CAN
+ */
 void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode)
 {
  8002534:	b580      	push	{r7, lr}
@@ -5404,6 +5452,9 @@ void CAN_mode_change(FDCAN_HandleTypeDef *hfdcan, uint32_t required_mode)
 
 0800255e <CAN_baudrate_change>:
 
+/*
+ * Задаём битрейт и тайминги CAN
+ */
 void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32_t SJW, uint32_t seg1, uint32_t seg2)
 {
  800255e:	b580      	push	{r7, lr}
@@ -5447,6 +5498,9 @@ void CAN_baudrate_change(FDCAN_HandleTypeDef *hfdcan, uint32_t prescaler, uint32
 
 080025a0 <add_message_to_CAN_TX_queue>:
 
+/*
+ * Добавляем CAN-сообщение в очередь на отправку
+ */
 void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8_t *tx_data_pointer)
 {
  80025a0:	b5b0      	push	{r4, r5, r7, lr}
@@ -5542,6 +5596,9 @@ void add_message_to_CAN_TX_queue(FDCAN_TxHeaderTypeDef *tx_header_pointer, uint8
 
 08002648 <send_messages_from_CAN_TX_queue>:
 
+/*
+ * Посылаем CAN-сообщения из очереди
+ */
 void send_messages_from_CAN_TX_queue(void)
 {
  8002648:	b580      	push	{r7, lr}
@@ -5629,6 +5686,9 @@ void send_messages_from_CAN_TX_queue(void)
 
 080026dc <count_string_lenght>:
 
+/*
+ * Определяем длину строки
+ */
 uint8_t count_string_lenght(char* ch_string)
 {
  80026dc:	b480      	push	{r7}
@@ -5638,7 +5698,7 @@ uint8_t count_string_lenght(char* ch_string)
 	uint8_t number_of_chars = 0;
  80026e4:	2300      	movs	r3, #0
  80026e6:	73fb      	strb	r3, [r7, #15]
-	while (ch_string[number_of_chars] != '\0')
+	while (ch_string[number_of_chars] != '\0') 			// ищем нуль-символ
  80026e8:	e005      	b.n	80026f6 <count_string_lenght+0x1a>
 	{
 		number_of_chars++;
@@ -5649,7 +5709,7 @@ uint8_t count_string_lenght(char* ch_string)
  80026f0:	7bfb      	ldrb	r3, [r7, #15]
  80026f2:	2b40      	cmp	r3, #64	; 0x40
  80026f4:	d006      	beq.n	8002704 <count_string_lenght+0x28>
-	while (ch_string[number_of_chars] != '\0')
+	while (ch_string[number_of_chars] != '\0') 			// ищем нуль-символ
  80026f6:	7bfb      	ldrb	r3, [r7, #15]
  80026f8:	687a      	ldr	r2, [r7, #4]
  80026fa:	4413      	add	r3, r2
@@ -5673,6 +5733,9 @@ uint8_t count_string_lenght(char* ch_string)
 
 08002714 <init_CAN_filter>:
 
+/*
+ * Инициализируем CAN-фильтр
+ */
 void init_CAN_filter(void)
 {
  8002714:	b580      	push	{r7, lr}
@@ -5793,6 +5856,9 @@ void update_CAN_acceptance_mask(uint8_t string_size, char* string_pointer)
 
 080027cc <update_CAN_acceptance_code>:
 
+/*
+ * меняем CAN-accptance code
+ */
 void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer)
 {
  80027cc:	b580      	push	{r7, lr}
@@ -5859,6 +5925,9 @@ void update_CAN_acceptance_code(uint8_t string_size, char* string_pointer)
 
 08002834 <status_flag_byte_0>:
 
+/*
+ * Получаем младший байт статуса CAN-шины
+ */
 char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status)
 {
  8002834:	b084      	sub	sp, #16
@@ -5896,6 +5965,9 @@ char status_flag_byte_0(FDCAN_ProtocolStatusTypeDef protocol_status)
 
 08002878 <status_flag_byte_1>:
 
+/*
+ * Получаем старший байт статуса CAN-шины
+ */
 char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status)
 {
  8002878:	b084      	sub	sp, #16
@@ -5948,6 +6020,9 @@ char status_flag_byte_1(FDCAN_ProtocolStatusTypeDef protocol_status)
 
 080028d4 <convert_int_value_to_ascii_char>:
 
+/*
+ * Конвертируем int-значение в ASCII-символ
+ */
 char convert_int_value_to_ascii_char(uint8_t int_value)
 {
  80028d4:	b480      	push	{r7}
