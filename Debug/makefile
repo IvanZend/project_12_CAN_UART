@@ -76,8 +76,8 @@ all: main-build
 main-build: project_12_CAN_UART.elf secondary-outputs
 
 # Tool invocations
-project_12_CAN_UART.elf: $(OBJS) $(USER_OBJS) C:\Users\IvanB.HEL-KONSTR7\Documents\GitHub\project_12_CAN_UART\STM32G431KBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "project_12_CAN_UART.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\IvanB.HEL-KONSTR7\Documents\GitHub\project_12_CAN_UART\STM32G431KBTX_FLASH.ld" -Wl,-Map="project_12_CAN_UART.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+project_12_CAN_UART.elf: $(OBJS) $(USER_OBJS) C:\Users\xenof\Documents\GitHub\project_12_CAN_UART\STM32G431KBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-g++ -o "project_12_CAN_UART.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\xenof\Documents\GitHub\project_12_CAN_UART\STM32G431KBTX_FLASH.ld" -Wl,-Map="project_12_CAN_UART.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
