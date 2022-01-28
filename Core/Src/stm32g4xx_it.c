@@ -265,4 +265,4 @@ void USART2_IRQHandler(void)
 //UART_message_decode(&huart2);
 //transmit_messages_IT_handler();
 /* USER CODE END 1 */
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
